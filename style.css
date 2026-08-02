@@ -166,7 +166,11 @@
         linear-gradient(30deg, transparent 48%, rgba(240,200,120,.34) 49%, rgba(240,200,120,.34) 51%, transparent 52%),
         linear-gradient(150deg, transparent 48%, rgba(240,200,120,.34) 49%, rgba(240,200,120,.34) 51%, transparent 52%);
       background-size: 84px 84px;
-      mask-image: linear-gradient(to bottom, black, transparent 85%);
+      /* A clean, texture-free zone right at the very top (where the
+         logo/wordmark sits) before the decorative pattern fades in —
+         previously the texture was strongest exactly where the logo
+         lives, causing a diagonal line to visibly cut across it. */
+      mask-image: linear-gradient(to bottom, transparent, transparent 90px, black 140px, transparent 85%);
     }
 
     .dark-room::after {
