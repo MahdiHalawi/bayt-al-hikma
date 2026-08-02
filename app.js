@@ -92,6 +92,7 @@ const translations = {
     cookie_banner_text: "We use local browser storage to keep you logged in, and may use basic analytics to understand how the site is used.",
     cookie_learn_more: "Learn more",
     cookie_accept: "Got it",
+    premium_celebration_text: "Welcome to Premium",
     continue_deeper: "Continue deeper",
     seeking_eyebrow: "The gathering of knowledge",
     seeking_title: "The hoopoe has gone to gather what you seek.",
@@ -195,6 +196,7 @@ const translations = {
     cookie_banner_text: "نستخدم التخزين المحلي في متصفحك لإبقائك مسجلاً للدخول، وقد نستخدم تحليلات أساسية لفهم كيفية استخدام الموقع.",
     cookie_learn_more: "اعرف المزيد",
     cookie_accept: "حسناً",
+    premium_celebration_text: "أهلاً بك في بريميوم",
     continue_deeper: "تابع أعمق",
     seeking_eyebrow: "جمع المعرفة",
     seeking_title: "ذهب الهدهد ليجمع ما تسعى إليه.",
@@ -298,6 +300,7 @@ const translations = {
     cookie_banner_text: "Nous utilisons le stockage local de votre navigateur pour vous garder connecté, et pourrions utiliser des analyses de base pour comprendre l'utilisation du site.",
     cookie_learn_more: "En savoir plus",
     cookie_accept: "Compris",
+    premium_celebration_text: "Bienvenue dans Premium",
     continue_deeper: "Continuer",
     seeking_eyebrow: "La collecte du savoir",
     seeking_title: "La huppe est partie chercher ce que vous cherchez.",
@@ -1424,6 +1427,28 @@ document.getElementById("close-upgrade-button").addEventListener("click", () => 
 });
 upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) upgradeOverlay.classList.add("hidden"); });
 
+// A brief, tasteful moment when someone genuinely becomes premium —
+// called from both the real Paddle confirmation and the demo fallback,
+// so the experience feels the same regardless of which path granted it.
+function celebratePremiumUnlock() {
+  const el = document.getElementById("premium-celebration");
+  if (!el) return;
+  el.classList.remove("hidden");
+  // Letting the browser paint the "hidden" removal first, THEN adding
+  // "showing" on the next frame — this is what actually makes the CSS
+  // transition play, rather than jumping straight to the end state.
+  // Falls back to a short setTimeout if requestAnimationFrame isn't
+  // available in this environment — same visual result either way.
+  const nextFrame = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16);
+  nextFrame(() => {
+    nextFrame(() => el.classList.add("showing"));
+  });
+  setTimeout(() => {
+    el.classList.remove("showing");
+    setTimeout(() => el.classList.add("hidden"), 500); // matches the CSS transition duration
+  }, 3200);
+}
+
 // Called when Paddle's checkout widget reports the purchase flow
 // completed — this is UX feedback ONLY. It never sets premium status
 // directly, since a browser event could be spoofed by anyone with dev
@@ -1445,6 +1470,7 @@ async function handlePaddleCheckoutCompleted() {
         renderPathGrid();
         renderTracker();
         status.textContent = "";
+        celebratePremiumUnlock();
         return;
       }
     } catch (err) {
@@ -1493,6 +1519,7 @@ document.getElementById("checkout-button").addEventListener("click", async () =>
     upgradeOverlay.classList.add("hidden");
     renderPathGrid();
     renderTracker();
+    celebratePremiumUnlock();
   }, 900);
 });
 

@@ -920,3 +920,32 @@
 .skip-link:focus {
   top: 0;
 }
+
+.premium-celebration {
+  position: fixed;
+  top: 1.5rem; left: 50%;
+  transform: translateX(-50%) translateY(-20px) scale(.95);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  background: linear-gradient(135deg, var(--indigo), var(--night));
+  border: 1px solid var(--gold);
+  box-shadow: 0 0 0 1px rgba(217,169,79,.25), 0 12px 34px rgba(0,0,0,.45), 0 0 40px rgba(217,169,79,.25);
+  color: var(--light-gold);
+  font: 700 .95rem "Cormorant Garamond", serif;
+  letter-spacing: .04em;
+  padding: .9rem 1.8rem;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .5s ease, transform .5s ease;
+}
+.premium-celebration.showing {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+.premium-celebration .celebration-flourish {
+  color: var(--gold);
+  font-size: .85rem;
+}
