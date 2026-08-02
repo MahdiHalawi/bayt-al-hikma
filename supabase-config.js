@@ -1,4 +1,3 @@
-
 // Paste your own values here — from Supabase dashboard:
 // Project Settings → API → Project URL, and the "anon public" key.
 //
