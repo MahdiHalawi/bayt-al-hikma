@@ -2,6 +2,23 @@
 // Bayt Al-Hikma — app logic
 // ============================================================
 
+// ---------- real mobile viewport height fix ----------
+// Plain CSS `vh` units on mobile browsers include space that gets
+// visually covered by the browser's own address bar — this is why
+// content (like the verse overlay's close button) could end up hidden
+// behind the phone's own browser chrome. style.css already expected a
+// `--vh` custom property to fix this (see .app-shell, .screen, and
+// .verse-card), but the JS to actually calculate and set it never
+// existed — every mobile screen was silently falling back to plain
+// `1vh`, exactly reproducing the bug it was meant to prevent.
+function setRealViewportHeight() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty("--vh", `${vh}px`);
+}
+setRealViewportHeight();
+window.addEventListener("resize", setRealViewportHeight);
+window.addEventListener("orientationchange", setRealViewportHeight);
+
 // ---------- book catalog (demo data — see README for growing this for real) ----------
 const CATALOG = {
   philosophy: {
