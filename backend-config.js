@@ -7,4 +7,4 @@
 // Same window-attachment pattern as supabase-config.js and
 // youtube-config.js, for the same reason: guarantees app.js (a separate
 // script file) can always see it.
-window.BACKEND_URL = "http://localhost:4242";
+window.BACKEND_URL = "https://bayt-al-hikma.onrender.com";
