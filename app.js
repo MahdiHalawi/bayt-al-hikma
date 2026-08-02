@@ -1,0 +1,1548 @@
+// ============================================================
+// Bayt Al-Hikma — app logic
+// ============================================================
+
+// ---------- book catalog (demo data — see README for growing this for real) ----------
+const CATALOG = {
+  philosophy: {
+    keywords: ["philosophy", "فلسفة", "philosophie", "meaning", "existence", "ethics"],
+    books: [
+      { id: "sophies-world", type: "book", lang: "en", title: "Sophie's World", author: "Jostein Gaarder", reason: "An inviting map of the questions philosophy has asked." },
+      { id: "problems-of-philosophy", type: "book", lang: "en", title: "The Problems of Philosophy", author: "Bertrand Russell", reason: "A concise guide to the questions beneath everyday certainty." },
+      { id: "republic", type: "book", lang: "en", title: "The Republic", author: "Plato", reason: "A foundational conversation about justice, knowledge, and the good life." },
+      { id: "incoherence", type: "book", lang: "en", title: "The Incoherence of the Philosophers", author: "Al-Ghazali", reason: "A rigorous encounter with reason, metaphysics, and tradition." },
+      { id: "incoherence-ar", type: "book", lang: "ar", title: "تهافت الفلاسفة", author: "الغزالي", reason: "النص الأصلي بالعربية، كما كتبه الغزالي نفسه." },
+      { id: "phil-article-1", type: "article", lang: "en", title: "What Philosophy Actually Asks", author: "Aeon", url: "https://aeon.co", reason: "A short, clear framing of philosophy's core questions before diving deeper." },
+      { id: "phil-article-ar-1", type: "article", lang: "ar", title: "ما الذي تسأله الفلسفة حقاً؟", author: "منصة عربية", url: "https://aeon.co", reason: "مقالة قصيرة تؤطر أسئلة الفلسفة الأساسية بلغة عربية واضحة." },
+      { id: "phil-video-1", type: "video", lang: "en", title: "The History of Philosophy in 20 Minutes", author: "CrashCourse Philosophy", url: "https://www.youtube.com/", reason: "A fast, visual overview to orient yourself before reading further." },
+      { id: "phil-course-1", type: "course", lang: "en", title: "Introduction to Philosophy", author: "University of Edinburgh (via edX)", url: "https://www.edx.org", reason: "A structured, multi-week path for a proper immersive foundation." },
+    ],
+  },
+  default: {
+    keywords: [],
+    books: [
+      { id: "sophies-world", type: "book", lang: "en", title: "Sophie's World", author: "Jostein Gaarder", reason: "A gentle place to start while you tell us more." },
+      { id: "problems-of-philosophy", type: "book", lang: "en", title: "The Problems of Philosophy", author: "Bertrand Russell", reason: "A concise guide to the questions beneath everyday certainty." },
+      { id: "republic", type: "book", lang: "en", title: "The Republic", author: "Plato", reason: "A foundational conversation about justice, knowledge, and the good life." },
+      { id: "incoherence", type: "book", lang: "en", title: "The Incoherence of the Philosophers", author: "Al-Ghazali", reason: "A rigorous encounter with reason, metaphysics, and tradition." },
+    ],
+  },
+};
+
+// ---------- translations (covers every data-i18n / data-i18n-placeholder in index.html) ----------
+const translations = {
+  en: {
+    landing_eyebrow: "The House of Wisdom",
+    landing_title: "Enter the house. Find the path made for your mind.",
+    landing_lede: "Across languages and centuries, knowledge waits in the rooms ahead. Tell the hoopoe what you seek, and let it guide you toward a considered path forward.",
+    goalPlaceholder: "I want to understand philosophy",
+    goalError: "Tell the hoopoe what you would like to understand first.",
+    enter_house: "Enter the house",
+    returningLink: "Been here before? Log in",
+    returningPrompt: "Did you enter before? Come with me.",
+    emailPlaceholder: "you@example.com",
+    passwordPlaceholder: "••••••••",
+    return_login: "Take me to my track",
+    questions_eyebrow: "A few steps deeper",
+    questions_title: "Let the hoopoe know where to begin.",
+    questions_intro: "A little context helps shape a path with the right pace, depth, and form.",
+    level_label: "Where are you beginning?",
+    level_new: "New to this",
+    level_basics: "I know some basics",
+    level_wellread: "Already well-read",
+    format_label: "How do you prefer to read?",
+    format_physical: "Physical books",
+    format_digital: "Digital reading",
+    format_either: "Either way",
+    content_type_label: "What kind of path fits you?",
+    content_books: "Books",
+    content_articles: "Articles",
+    content_videos: "Videos",
+    content_courses: "Courses",
+    content_mix: "A mix of everything",
+    content_language_label: "Which language do you want this in?",
+    lang_no_preference: "No preference",
+    lang_english: "English",
+    lang_arabic: "Arabic",
+    lang_french: "French",
+    time_label: "How much time can you give it?",
+    time_quick: "Quick pieces",
+    time_moderate: "A steady pace",
+    time_deep: "Deep, immersive study",
+    open_link: "Open",
+    read_free_link: "Read free",
+    buy_locally_prefix: "Buy locally via",
+    cookie_banner_text: "We use local browser storage to keep you logged in, and may use basic analytics to understand how the site is used.",
+    cookie_learn_more: "Learn more",
+    cookie_accept: "Got it",
+    continue_deeper: "Continue deeper",
+    seeking_eyebrow: "The gathering of knowledge",
+    seeking_title: "The hoopoe has gone to gather what you seek.",
+    seeking_lede: "It travels between sources, tracing one step to the next, until a path begins to appear.",
+    choosePasswordPlaceholder: "choose a password",
+    send_button: "Send to me",
+    agree_prefix: "I agree to the",
+    terms_link_text: "Terms of Service",
+    agree_and: "and",
+    privacy_link_text: "Privacy Policy",
+    agree_terms_required: "Please agree to the Terms of Service and Privacy Policy to continue.",
+    logout_button: "Log out",
+    expand_scroll: "Expand my scroll",
+    seekingStatus1: "Following the traces between shelves...",
+    seekingStatus2: "The hoopoe has prepared something. Check your message.",
+    secretText: "✦ A hidden message awaits — tap to reveal your path ✦",
+    reveal_eyebrow: "A manuscript prepared for you",
+    reveal_title: "Your path of understanding",
+    reveal_subtitle: "A patient sequence: begin with the door, learn the language of the room, and continue into the deeper chambers.",
+    tap_note: "Tap the hoopoe to hear its story",
+    freePlan: "Free plan · step 1 of",
+    premiumPlan: "Premium · full path unlocked",
+    lockedLabel: "Locked",
+    unlockPrompt: "Unlock with Premium",
+    unrollTracker: "Unroll my tracker",
+    unlockTracker: "Unlock my tracker with Premium",
+    tracker_eyebrow: "Keep the path",
+    tracker_title: "Your scroll of wisdom",
+    tracker_lede: "Mark each threshold crossed. A path becomes wisdom only when it is walked.",
+    tracker_heading: "The path before you",
+    progressLabel: "complete",
+    progressLabelSingle: "complete",
+    newPathFree: "Upgrade to add more paths",
+    newPathPremium: "Begin another path",
+    verse_eyebrow: "The hoopoe's message",
+    verse_heading: "A seeker brings certain news",
+    close_verse: "Return to the manuscript",
+    upgrade_eyebrow: "Unlock the rest of the house",
+    pricing_period: "/month",
+    pricing_feature_1: "Every step of every path, not just the first",
+    pricing_feature_2: "Unlimited new paths, any time",
+    pricing_feature_3: "Full progress tracking across all your paths",
+    checkout_button: "Upgrade to Premium",
+    not_now: "Not now",
+    paths_eyebrow: "Your saved paths",
+    paths_title: "Which path calls you today?",
+    noPathsYet: "No paths yet — start your first one below.",
+    view_paths: "View my paths",
+    back_to_results: "See covers and links again",
+    forgot_password: "Forgot password?",
+    reset_prompt: "Enter your email and we'll send a reset link.",
+    send_reset_link: "Send reset link",
+    reset_link_sent: "Check your email for a link to reset your password.",
+    new_password_eyebrow: "Set a new password",
+    new_password_title: "Choose a new password",
+    update_password_button: "Update password",
+    password_updated: "Your password has been updated. You're all set.",
+    goto_login: "Log in instead",
+  },
+  ar: {
+    landing_eyebrow: "بيت الحكمة",
+    landing_title: "ادخل البيت. اعثر على الطريق المصنوع لعقلك.",
+    landing_lede: "عبر اللغات والقرون، تنتظر المعرفة في الغرف أمامك. أخبر الهدهد بما تسعى إليه، ودعه يرشدك إلى طريق مدروس إلى الأمام.",
+    goalPlaceholder: "أريد أن أفهم الفلسفة",
+    goalError: "أخبر الهدهد بما تريد أن تفهمه أولاً.",
+    enter_house: "ادخل البيت",
+    returningLink: "هل دخلت من قبل؟ سجّل الدخول",
+    returningPrompt: "هل دخلت من قبل؟ تعال معي.",
+    emailPlaceholder: "you@example.com",
+    passwordPlaceholder: "••••••••",
+    return_login: "خذني إلى مسيرتي",
+    questions_eyebrow: "خطوات قليلة أعمق",
+    questions_title: "دع الهدهد يعرف من أين تبدأ.",
+    questions_intro: "القليل من السياق يساعد في تشكيل طريق بالوتيرة والعمق والصيغة المناسبة.",
+    level_label: "من أين تبدأ؟",
+    level_new: "جديد على هذا",
+    level_basics: "أعرف بعض الأساسيات",
+    level_wellread: "قارئ متمرس بالفعل",
+    format_label: "كيف تفضل القراءة؟",
+    format_physical: "كتب ورقية",
+    format_digital: "قراءة رقمية",
+    format_either: "لا يهم",
+    content_type_label: "أي نوع من الطريق يناسبك؟",
+    content_books: "كتب",
+    content_articles: "مقالات",
+    content_videos: "فيديوهات",
+    content_courses: "دورات",
+    content_mix: "مزيج من كل شيء",
+    content_language_label: "بأي لغة تريد هذا المحتوى؟",
+    lang_no_preference: "لا تفضيل",
+    lang_english: "الإنجليزية",
+    lang_arabic: "العربية",
+    lang_french: "الفرنسية",
+    time_label: "كم من الوقت يمكنك تخصيصه؟",
+    time_quick: "قطع سريعة",
+    time_moderate: "وتيرة ثابتة",
+    time_deep: "دراسة عميقة ومكثفة",
+    open_link: "افتح",
+    read_free_link: "اقرأ مجاناً",
+    buy_locally_prefix: "اشترِ محلياً عبر",
+    cookie_banner_text: "نستخدم التخزين المحلي في متصفحك لإبقائك مسجلاً للدخول، وقد نستخدم تحليلات أساسية لفهم كيفية استخدام الموقع.",
+    cookie_learn_more: "اعرف المزيد",
+    cookie_accept: "حسناً",
+    continue_deeper: "تابع أعمق",
+    seeking_eyebrow: "جمع المعرفة",
+    seeking_title: "ذهب الهدهد ليجمع ما تسعى إليه.",
+    seeking_lede: "يتنقل بين المصادر، متتبعًا خطوة بعد أخرى، حتى يبدأ الطريق بالظهور.",
+    choosePasswordPlaceholder: "اختر كلمة مرور",
+    send_button: "أرسلها لي",
+    agree_prefix: "أوافق على",
+    terms_link_text: "شروط الخدمة",
+    agree_and: "و",
+    privacy_link_text: "سياسة الخصوصية",
+    agree_terms_required: "يرجى الموافقة على شروط الخدمة وسياسة الخصوصية للمتابعة.",
+    logout_button: "تسجيل الخروج",
+    expand_scroll: "وسّع مخطوطتي",
+    seekingStatus1: "يتبع الأثر بين الرفوف...",
+    seekingStatus2: "الهدهد أعدّ شيئاً. تفقّد رسالتك.",
+    secretText: "✦ رسالة خفية بانتظارك — انقر لكشف طريقك ✦",
+    reveal_eyebrow: "مخطوطة أُعدّت من أجلك",
+    reveal_title: "طريق فهمك",
+    reveal_subtitle: "تسلسل صبور: ابدأ بالباب، تعلّم لغة الغرفة، ثم تابع إلى الغرف الأعمق.",
+    tap_note: "انقر على الهدهد لتسمع قصته",
+    freePlan: "الخطة المجانية · الخطوة 1 من",
+    premiumPlan: "بريميوم · الطريق كاملاً مفتوح",
+    lockedLabel: "مقفل",
+    unlockPrompt: "افتحه مع بريميوم",
+    unrollTracker: "افتح متتبعي",
+    unlockTracker: "افتح متتبعي مع بريميوم",
+    tracker_eyebrow: "احتفظ بالطريق",
+    tracker_title: "مخطوطة حكمتك",
+    tracker_lede: "ضع علامة على كل عتبة عبرتها. الطريق يصبح حكمة فقط حين يُمشى.",
+    tracker_heading: "الطريق أمامك",
+    progressLabel: "مكتمل",
+    progressLabelSingle: "مكتمل",
+    newPathFree: "اشترك لإضافة مسارات أخرى",
+    newPathPremium: "ابدأ مسارًا جديدًا",
+    verse_eyebrow: "رسالة الهدهد",
+    verse_heading: "طائر يجلب خبرًا يقينًا",
+    close_verse: "العودة إلى المخطوطة",
+    upgrade_eyebrow: "افتح بقية البيت",
+    pricing_period: "/شهريًا",
+    pricing_feature_1: "كل خطوة من كل طريق، وليس الأولى فقط",
+    pricing_feature_2: "مسارات جديدة غير محدودة، في أي وقت",
+    pricing_feature_3: "تتبع كامل لتقدمك عبر كل مساراتك",
+    checkout_button: "الترقية إلى بريميوم",
+    not_now: "ليس الآن",
+    paths_eyebrow: "مساراتك المحفوظة",
+    paths_title: "أي طريق ينادي اليوم؟",
+    noPathsYet: "لا توجد مسارات بعد — ابدأ أولها أدناه.",
+    view_paths: "شاهد مساراتي",
+    back_to_results: "شاهد الأغلفة والروابط مجدداً",
+    forgot_password: "نسيت كلمة المرور؟",
+    reset_prompt: "أدخل بريدك الإلكتروني وسنرسل رابط إعادة التعيين.",
+    send_reset_link: "أرسل رابط إعادة التعيين",
+    reset_link_sent: "تفقّد بريدك الإلكتروني لرابط إعادة تعيين كلمة المرور.",
+    new_password_eyebrow: "عيّن كلمة مرور جديدة",
+    new_password_title: "اختر كلمة مرور جديدة",
+    update_password_button: "تحديث كلمة المرور",
+    password_updated: "تم تحديث كلمة المرور. كل شيء جاهز.",
+    goto_login: "سجّل الدخول بدلاً من ذلك",
+  },
+  fr: {
+    landing_eyebrow: "La Maison de la Sagesse",
+    landing_title: "Entrez dans la maison. Trouvez le chemin fait pour votre esprit.",
+    landing_lede: "À travers les langues et les siècles, le savoir attend dans les salles à venir. Dites à la huppe ce que vous cherchez, et laissez-la vous guider vers un chemin réfléchi.",
+    goalPlaceholder: "Je veux comprendre la philosophie",
+    goalError: "Dites à la huppe ce que vous aimeriez comprendre.",
+    enter_house: "Entrer dans la maison",
+    returningLink: "Déjà venu ? Se connecter",
+    returningPrompt: "Êtes-vous déjà venu ? Venez avec moi.",
+    emailPlaceholder: "vous@exemple.com",
+    passwordPlaceholder: "••••••••",
+    return_login: "Emmenez-moi à mon parcours",
+    questions_eyebrow: "Quelques pas de plus",
+    questions_title: "Dites à la huppe par où commencer.",
+    questions_intro: "Un peu de contexte aide à façonner un chemin au bon rythme et à la bonne profondeur.",
+    level_label: "D'où partez-vous ?",
+    level_new: "Nouveau dans ce domaine",
+    level_basics: "Je connais les bases",
+    level_wellread: "Déjà bien lu",
+    format_label: "Comment préférez-vous lire ?",
+    format_physical: "Livres papier",
+    format_digital: "Lecture numérique",
+    format_either: "Peu importe",
+    content_type_label: "Quel type de chemin vous convient ?",
+    content_books: "Livres",
+    content_articles: "Articles",
+    content_videos: "Vidéos",
+    content_courses: "Cours",
+    content_mix: "Un mélange de tout",
+    content_language_label: "Dans quelle langue voulez-vous ce contenu ?",
+    lang_no_preference: "Peu importe",
+    lang_english: "Anglais",
+    lang_arabic: "Arabe",
+    lang_french: "Français",
+    time_label: "Combien de temps pouvez-vous y consacrer ?",
+    time_quick: "Des pièces rapides",
+    time_moderate: "Un rythme régulier",
+    time_deep: "Une étude approfondie",
+    open_link: "Ouvrir",
+    read_free_link: "Lire gratuitement",
+    buy_locally_prefix: "Acheter localement via",
+    cookie_banner_text: "Nous utilisons le stockage local de votre navigateur pour vous garder connecté, et pourrions utiliser des analyses de base pour comprendre l'utilisation du site.",
+    cookie_learn_more: "En savoir plus",
+    cookie_accept: "Compris",
+    continue_deeper: "Continuer",
+    seeking_eyebrow: "La collecte du savoir",
+    seeking_title: "La huppe est partie chercher ce que vous cherchez.",
+    seeking_lede: "Elle voyage entre les sources, traçant une étape après l'autre, jusqu'à ce qu'un chemin apparaisse.",
+    choosePasswordPlaceholder: "choisissez un mot de passe",
+    send_button: "Envoyez-le-moi",
+    agree_prefix: "J'accepte les",
+    terms_link_text: "Conditions d'utilisation",
+    agree_and: "et la",
+    privacy_link_text: "Politique de confidentialité",
+    agree_terms_required: "Veuillez accepter les Conditions d'utilisation et la Politique de confidentialité pour continuer.",
+    logout_button: "Se déconnecter",
+    expand_scroll: "Élargir mon parchemin",
+    seekingStatus1: "Elle suit les traces entre les étagères...",
+    seekingStatus2: "La huppe a préparé quelque chose. Consultez votre message.",
+    secretText: "✦ Un message secret vous attend — cliquez pour révéler votre chemin ✦",
+    reveal_eyebrow: "Un manuscrit préparé pour vous",
+    reveal_title: "Votre chemin de compréhension",
+    reveal_subtitle: "Une séquence patiente : commencez par la porte, apprenez le langage de la salle, puis continuez vers les chambres plus profondes.",
+    tap_note: "Touchez la huppe pour entendre son histoire",
+    freePlan: "Plan gratuit · étape 1 sur",
+    premiumPlan: "Premium · chemin complet débloqué",
+    lockedLabel: "Verrouillé",
+    unlockPrompt: "Débloquer avec Premium",
+    unrollTracker: "Déployer mon suivi",
+    unlockTracker: "Débloquer mon suivi avec Premium",
+    tracker_eyebrow: "Gardez le chemin",
+    tracker_title: "Votre parchemin de sagesse",
+    tracker_lede: "Marquez chaque seuil franchi. Un chemin ne devient sagesse que lorsqu'il est parcouru.",
+    tracker_heading: "Le chemin devant vous",
+    progressLabel: "terminé",
+    progressLabelSingle: "terminé",
+    newPathFree: "Passez à Premium pour plus de chemins",
+    newPathPremium: "Commencer un nouveau chemin",
+    verse_eyebrow: "Le message de la huppe",
+    verse_heading: "Une messagère apporte une nouvelle certaine",
+    close_verse: "Retour au manuscrit",
+    upgrade_eyebrow: "Débloquez le reste de la maison",
+    pricing_period: "/mois",
+    pricing_feature_1: "Chaque étape de chaque chemin, pas seulement la première",
+    pricing_feature_2: "Chemins illimités, à tout moment",
+    pricing_feature_3: "Suivi complet de votre progression sur tous vos chemins",
+    checkout_button: "Passer à Premium",
+    not_now: "Pas maintenant",
+    paths_eyebrow: "Vos chemins enregistrés",
+    paths_title: "Quel chemin vous appelle aujourd'hui ?",
+    noPathsYet: "Aucun chemin encore — commencez le premier ci-dessous.",
+    view_paths: "Voir mes chemins",
+    back_to_results: "Revoir les couvertures et les liens",
+    forgot_password: "Mot de passe oublié ?",
+    reset_prompt: "Entrez votre email et nous enverrons un lien de réinitialisation.",
+    send_reset_link: "Envoyer le lien",
+    reset_link_sent: "Consultez votre email pour un lien de réinitialisation.",
+    new_password_eyebrow: "Définir un nouveau mot de passe",
+    new_password_title: "Choisissez un nouveau mot de passe",
+    update_password_button: "Mettre à jour le mot de passe",
+    password_updated: "Votre mot de passe a été mis à jour.",
+    goto_login: "Se connecter à la place",
+  },
+};
+
+let currentLang = "en";
+function t(key) { return translations[currentLang][key] || translations.en[key]; }
+
+// Walks every element carrying a translation hook and updates its text
+// (or placeholder) to match the active language. This is what was
+// actually missing before — the language buttons updated `currentLang`
+// but nothing re-rendered the static copy on the page.
+function applyLang(lang) {
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (translations.en[key]) el.textContent = t(key);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (translations.en[key]) el.placeholder = t(key);
+  });
+
+  document.querySelectorAll(".lang-btn").forEach((b) => b.classList.toggle("active-lang", b.dataset.lang === lang));
+
+  renderPathGrid();
+  renderTracker();
+}
+
+// ---------- app state ----------
+const state = {
+  goal: "",
+  level: "basics",
+  format: "physical",
+  contentType: "books",
+  contentLanguage: "any",
+  timeCommitment: "moderate",
+  country: "Lebanon",
+  isPremium: false,
+  userId: null,
+  currentPath: [],
+  currentPathId: null,
+  completed: new Set(),
+};
+
+const COUNTRIES = [
+  { name: "Lebanon", flag: "🇱🇧" },
+  { name: "Jordan", flag: "🇯🇴" },
+  { name: "United Arab Emirates", flag: "🇦🇪" },
+];
+
+// ---------- screen navigation ----------
+const screens = {
+  landing: document.getElementById("landing-screen"),
+  questions: document.getElementById("questions-screen"),
+  seeking: document.getElementById("seeking-screen"),
+  reveal: document.getElementById("reveal-screen"),
+  paths: document.getElementById("paths-screen"),
+  tracker: document.getElementById("tracker-screen"),
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s.classList.remove("active"));
+  screens[name].classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ---------- language ----------
+document.querySelectorAll(".lang-btn").forEach((btn) => {
+  btn.addEventListener("click", () => applyLang(btn.dataset.lang));
+});
+
+// ---------- location: real dropdown, not click-to-cycle ----------
+const locationCurrent = document.getElementById("location-current");
+const locationList = document.getElementById("location-list");
+
+function renderLocationList() {
+  locationList.innerHTML = "";
+  COUNTRIES.forEach((c) => {
+    const li = document.createElement("li");
+    li.role = "option";
+    li.textContent = `${c.flag} ${c.name}`;
+    li.dataset.country = c.name;
+    li.addEventListener("click", () => {
+      state.country = c.name;
+      locationCurrent.textContent = `${c.flag} ${c.name}`;
+      closeLocationList();
+    });
+    locationList.appendChild(li);
+  });
+}
+
+function openLocationList() {
+  locationList.classList.remove("hidden");
+  locationCurrent.setAttribute("aria-expanded", "true");
+}
+function closeLocationList() {
+  locationList.classList.add("hidden");
+  locationCurrent.setAttribute("aria-expanded", "false");
+}
+
+locationCurrent.addEventListener("click", () => {
+  locationList.classList.contains("hidden") ? openLocationList() : closeLocationList();
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".location-picker")) closeLocationList();
+});
+
+renderLocationList();
+{
+  const c0 = COUNTRIES.find((c) => c.name === state.country);
+  locationCurrent.textContent = `${c0.flag} ${c0.name}`;
+}
+
+// ---------- landing: goal + returning-visitor login ----------
+const goalForm = document.getElementById("goal-form");
+const goalInput = document.getElementById("goal-input");
+const goalMessage = document.getElementById("goal-message");
+
+goalForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!goalInput.value.trim()) {
+    goalMessage.textContent = t("goalError");
+    goalInput.focus();
+    return;
+  }
+  state.goal = goalInput.value.trim();
+  goalMessage.textContent = "";
+  showScreen("questions");
+});
+
+document.getElementById("returning-link").addEventListener("click", () => {
+  document.getElementById("returning-panel").classList.toggle("hidden");
+});
+
+// ---------- password reset: requesting the link ----------
+document.getElementById("forgot-password-link").addEventListener("click", () => {
+  // Carry over whatever they already typed in the login email field, so
+  // they're not asked to type the same address twice.
+  const alreadyTypedEmail = document.getElementById("return-email").value.trim();
+  if (alreadyTypedEmail) {
+    document.getElementById("reset-email").value = alreadyTypedEmail;
+  }
+  document.getElementById("reset-request-panel").classList.toggle("hidden");
+});
+
+document.getElementById("send-reset-link-btn").addEventListener("click", async () => {
+  const email = document.getElementById("reset-email").value.trim();
+  const msg = document.getElementById("reset-request-message");
+  msg.textContent = "";
+
+  if (!email) return;
+
+  try {
+    // redirectTo tells Supabase where to send the person back to after
+    // they click the emailed link — this same page, so our own JS below
+    // can catch the PASSWORD_RECOVERY event and show the new-password form.
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) {
+      msg.textContent = error.message;
+      return;
+    }
+    msg.textContent = t("reset_link_sent");
+  } catch (err) {
+    console.error("Password reset request failed:", err);
+    msg.textContent = "Could not reach the account service. Check supabase-config.js and your browser console for details.";
+  }
+});
+
+// ---------- password reset: actually setting the new password ----------
+// Supabase fires this specific event once someone clicks the emailed
+// reset link and lands back on this page — that's the ONLY moment this
+// overlay should appear, since it means Supabase has already verified
+// the link and granted a temporary "you may change your password" state.
+try {
+  sb.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      document.getElementById("new-password-overlay").classList.remove("hidden");
+    }
+  });
+} catch (err) {
+  console.error("Could not register the auth state listener:", err);
+}
+
+document.getElementById("update-password-btn").addEventListener("click", async () => {
+  const newPassword = document.getElementById("new-password-input").value;
+  const msg = document.getElementById("new-password-message");
+  msg.textContent = "";
+
+  if (newPassword.length < 6) {
+    msg.textContent = "Please choose a password of at least 6 characters.";
+    return;
+  }
+
+  try {
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if (error) {
+      msg.textContent = error.message;
+      return;
+    }
+    msg.textContent = t("password_updated");
+    setTimeout(() => {
+      document.getElementById("new-password-overlay").classList.add("hidden");
+    }, 1800);
+  } catch (err) {
+    console.error("Password update failed:", err);
+    msg.textContent = "Could not reach the account service. Check supabase-config.js and your browser console for details.";
+  }
+});
+
+document.getElementById("signup-goto-login-btn").addEventListener("click", () => {
+  const typedEmail = document.getElementById("email-input").value.trim();
+  showScreen("landing");
+  document.getElementById("returning-panel").classList.remove("hidden");
+  document.getElementById("return-email").value = typedEmail;
+  document.getElementById("return-password").focus();
+});
+
+// Real login: authenticates against Supabase, then shows a list of this
+// user's actual saved paths — this replaces the old behavior of guessing
+// which single path to jump into, which broke down the moment someone
+// had more than one.
+document.getElementById("return-login-btn").addEventListener("click", async () => {
+  const email = document.getElementById("return-email").value.trim();
+  const password = document.getElementById("return-password").value;
+  const msg = document.getElementById("return-message");
+  msg.textContent = "";
+
+  let data, error;
+  try {
+    ({ data, error } = await sb.auth.signInWithPassword({ email, password }));
+  } catch (err) {
+    console.error("Supabase signInWithPassword threw:", err);
+    msg.textContent = "Could not reach the account service. Check supabase-config.js and your browser console for details.";
+    return;
+  }
+
+  if (error) {
+    msg.textContent = error.message;
+    return;
+  }
+
+  state.userId = data.user.id;
+
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("is_premium")
+    .eq("id", data.user.id)
+    .single();
+  state.isPremium = profile ? profile.is_premium : false;
+
+  document.getElementById("returning-panel").classList.add("hidden");
+  await showPathsList();
+});
+
+async function showPathsList() {
+  const { data: paths, error } = await sb
+    .from("paths")
+    .select("id, goal, topic, content_type, content_language, items, created_at")
+    .eq("user_id", state.userId)
+    .order("created_at", { ascending: false });
+
+  if (error) console.error("Could not load saved paths:", error.message);
+  renderPathsList(paths || []);
+  showScreen("paths");
+}
+
+function renderPathsList(paths) {
+  const container = document.getElementById("paths-list-container");
+  container.innerHTML = "";
+
+  if (paths.length === 0) {
+    container.innerHTML = `<p class="lede">${t("noPathsYet")}</p>`;
+  }
+
+  paths.forEach((p) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "path-list-item";
+    item.innerHTML = `${p.goal || p.topic}<span class="path-item-topic">${p.topic}</span>`;
+    item.addEventListener("click", async () => {
+      state.currentPathId = p.id;
+      // Replay the EXACT items originally shown, stored in the `items`
+      // column, rather than re-running a live search — this is the fix
+      // for the earlier limitation (live results can change over time,
+      // so re-searching could show different items than what progress
+      // was actually tracked against).
+      //
+      // The fallback re-search only exists for paths saved BEFORE this
+      // fix existed, which won't have anything in `items` yet.
+      if (p.items && p.items.length > 0) {
+        state.currentPath = p.items;
+      } else {
+        console.warn(`Path ${p.id} has no stored items (saved before this fix) — falling back to a live re-search.`);
+        state.currentPath = await buildPathReal(p.goal, p.content_type || "mix", p.content_language || "any", state.level);
+      }
+      state.goal = p.goal || "";
+
+      // Tracking is Premium-only everywhere else in the app (the
+      // tracker-button on the reveal screen enforces this too) — a free
+      // user clicking their one saved path here must land on the same
+      // results/reveal screen, not bypass straight into the tracker.
+      if (state.isPremium) {
+        await loadProgressFromDb(state.userId, p.id);
+        renderTracker();
+        showScreen("tracker");
+      } else {
+        renderPathGrid();
+        showScreen("reveal");
+      }
+    });
+    container.appendChild(item);
+  });
+
+  // Free accounts only ever get one path — once they have it, the
+  // "begin another path" action here becomes the upgrade prompt instead.
+  const startBtn = document.getElementById("start-new-path-button");
+  startBtn.textContent = !state.isPremium && paths.length >= 1 ? t("newPathFree") : t("newPathPremium");
+  startBtn.onclick = () => {
+    if (!state.isPremium && paths.length >= 1) {
+      openUpgrade();
+    } else {
+      showScreen("landing");
+    }
+  };
+}
+
+async function loadProgressFromDb(userId, pathId) {
+  const { data } = await sb.from("progress").select("book_id").eq("user_id", userId).eq("path_id", pathId);
+  state.completed = new Set((data || []).map((r) => r.book_id));
+}
+
+// ---------- questions ----------
+document.querySelectorAll(".option-chip").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const group = btn.dataset.group;
+    document.querySelectorAll(`.option-chip[data-group="${group}"]`).forEach((o) => {
+      o.classList.remove("selected");
+      o.setAttribute("aria-pressed", "false");
+    });
+    btn.classList.add("selected");
+    btn.setAttribute("aria-pressed", "true");
+    state[group] = btn.dataset.value;
+
+    // The physical/digital question only makes sense when books are
+    // actually part of the chosen path — hide it otherwise rather than
+    // asking something irrelevant.
+    if (group === "contentType") {
+      const showFormat = btn.dataset.value === "books" || btn.dataset.value === "mix";
+      document.getElementById("book-format-group").classList.toggle("hidden", !showFormat);
+    }
+  });
+});
+
+document.getElementById("continue-button").addEventListener("click", () => {
+  showScreen("seeking");
+  document.getElementById("seeking-status").textContent = "";
+  document.getElementById("searching-dots").classList.add("hidden");
+  document.getElementById("secret-message-btn").classList.add("hidden");
+  document.getElementById("signup-message").textContent = "";
+  document.getElementById("signup-goto-login-btn").classList.add("hidden");
+
+  if (state.userId) {
+    // Already logged in — never show the signup form again. Showing it
+    // here was the original bug: re-entering existing credentials just
+    // gets rejected by Supabase since that account already exists.
+    document.getElementById("email-form").classList.add("hidden");
+    startSeekingDelay();
+  } else {
+    document.getElementById("email-form").classList.remove("hidden");
+  }
+});
+
+// ---------- seeking: real signup gate (new users only) ----------
+const emailForm = document.getElementById("email-form");
+emailForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("email-input").value.trim();
+  const password = document.getElementById("signup-password").value;
+  const agreedToTerms = document.getElementById("agree-terms-checkbox").checked;
+  const msg = document.getElementById("signup-message");
+  msg.textContent = "";
+
+  // Supabase's own default minimum is 6 characters — matching that here
+  // avoids a confusing mismatch where our check passes but theirs fails.
+  if (!email || password.length < 6) {
+    msg.textContent = "Please enter a valid email and a password of at least 6 characters.";
+    return;
+  }
+
+  if (!agreedToTerms) {
+    msg.textContent = t("agree_terms_required");
+    return;
+  }
+
+  let data, error;
+  try {
+    ({ data, error } = await sb.auth.signUp({ email, password }));
+  } catch (err) {
+    // This catches things a normal {error} response wouldn't — e.g. a
+    // malformed SUPABASE_URL, a network/CORS failure, or the config
+    // still containing the placeholder text. Previously this failed
+    // completely silently, which is the bug being fixed here.
+    console.error("Supabase signUp threw:", err);
+    msg.textContent = "Could not reach the account service. Check supabase-config.js and your browser console for details.";
+    return;
+  }
+
+  if (error) {
+    msg.textContent = error.message;
+    // Supabase's message for this case includes "already registered" —
+    // when this happens, don't just leave the user stuck on a form that
+    // will only ever reject them; give them a direct way to log in
+    // instead, carrying their typed email over so they're not retyping it.
+    if (error.message.toLowerCase().includes("already registered")) {
+      document.getElementById("signup-goto-login-btn").classList.remove("hidden");
+    }
+    return;
+  }
+  if (!data.session) {
+    // Happens if your Supabase project still requires email confirmation.
+    // For easier testing, turn this off in: Authentication → Providers →
+    // Email → "Confirm email". Otherwise, tell the user to check their inbox.
+    msg.textContent = "Check your email to confirm your account, then log in from the landing page.";
+    return;
+  }
+
+  state.userId = data.user.id;
+  // Every new real account gets a matching row in our own profiles table.
+  try {
+    await sb.from("profiles").upsert({ id: data.user.id, is_premium: false });
+  } catch (err) {
+    console.error("Could not create profile row:", err);
+  }
+
+  emailForm.classList.add("hidden");
+  startSeekingDelay();
+});
+
+// Shared by both "just signed up" and "already logged in, starting
+// another path" — the simulated AI delay, then building AND saving the
+// new path as its own row so it shows up in the paths list later.
+// previouslyCompleted: when set (only for "Expand my scroll"), this is
+// the full list of items the person just finished. Two things happen
+// with it: (1) it's hard-excluded from the raw candidate pool BEFORE the
+// AI ever sees it — a guarantee, not just an instruction, that nothing
+// already-completed can be recommended again — and (2) it's given to
+// the AI as context, so the new path assumes that foundation and builds
+// genuinely deeper rather than starting over.
+function startSeekingDelay(previouslyCompleted = []) {
+  document.getElementById("searching-dots").classList.remove("hidden");
+  document.getElementById("seeking-status").textContent = t("seekingStatus1");
+
+  setTimeout(async () => {
+    const topic = resolveTopic(state.goal);
+
+    // Someone who just finished every item in a real path has
+    // demonstrably progressed on this topic, regardless of what level
+    // they originally self-reported — so an expansion always sequences
+    // as "wellread" rather than reusing their original starting level.
+    // Computed BEFORE the content fetch below, so a live articles/
+    // courses search for an expansion is also framed at the right
+    // level, not just the final sequencing pass.
+    const levelToUse = previouslyCompleted.length > 0 ? "wellread" : state.level;
+
+    let rawItems = await buildPathReal(state.goal, state.contentType, state.contentLanguage, levelToUse);
+
+    if (previouslyCompleted.length > 0) {
+      const completedIds = new Set(previouslyCompleted.map((it) => it.id));
+      rawItems = rawItems.filter((it) => !completedIds.has(it.id));
+    }
+
+    // Real items are already fetched at this point — this next step asks
+    // the AI to select and SEQUENCE them into a genuine progression based
+    // on the person's level, choosing only from these real, verified
+    // items (never inventing new ones). If the backend isn't running,
+    // this gracefully falls back to the unsequenced live results rather
+    // than breaking anything.
+    state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted);
+    state.currentPathId = null;
+    state.completed = new Set();
+
+    if (state.userId) {
+      try {
+        const { data, error } = await sb
+          .from("paths")
+          .insert({
+            user_id: state.userId,
+            goal: state.goal,
+            topic,
+            content_type: state.contentType,
+            content_language: state.contentLanguage,
+            items: state.currentPath, // the ACTUAL chosen items, not just enough info to re-search later
+          })
+          .select()
+          .single();
+        if (error) console.error("Could not save new path:", error.message);
+        else state.currentPathId = data.id;
+      } catch (err) {
+        console.error("Could not save new path:", err);
+      }
+    }
+
+    document.getElementById("searching-dots").classList.add("hidden");
+    document.getElementById("seeking-status").textContent = t("seekingStatus2");
+    const btn = document.getElementById("secret-message-btn");
+    btn.classList.remove("hidden");
+    btn.textContent = t("secretText");
+  }, 2200);
+}
+
+function resolveTopic(goal) {
+  const goalLower = (goal || "").toLowerCase();
+  return (
+    Object.keys(CATALOG).find(
+      (k) => k !== "default" && CATALOG[k].keywords.some((kw) => goalLower.includes(kw.toLowerCase()))
+    ) || "default"
+  );
+}
+
+function filterItems(items, contentType, contentLanguage) {
+  const typeMap = { books: "book", articles: "article", videos: "video", courses: "course" };
+  const wantedType = typeMap[contentType];
+
+  let result = wantedType ? items.filter((item) => item.type === wantedType) : items;
+  // Never let the type filter alone produce an empty list — fall back to
+  // everything rather than showing the user nothing.
+  if (result.length === 0) result = items;
+
+  if (contentLanguage && contentLanguage !== "any") {
+    const byLang = result.filter((item) => item.lang === contentLanguage);
+    // Same safety rule: if nothing matches the requested language, fall
+    // back to the type-filtered set rather than an empty path — better
+    // to show something in the "wrong" language than nothing at all.
+    if (byLang.length > 0) result = byLang;
+  }
+
+  return result;
+}
+
+// buildPath stays synchronous — used ONLY as an emergency fallback inside
+// render functions that can't await anything (see renderPathGrid /
+// renderTracker below). It never makes a network call.
+function buildPath(goal) {
+  const topic = resolveTopic(goal);
+  return filterItems(CATALOG[topic].books, state.contentType, state.contentLanguage);
+}
+
+// Real book search against Open Library — no API key needed, callable
+// directly from the browser. Returns null (not throws) on failure, so
+// the caller can decide how to fall back rather than crashing.
+// Goals are typed conversationally ("I want to understand math"), but a
+// search API needs the actual subject ("math"), not the whole sentence
+// — searching the raw sentence returns almost nothing useful, since the
+// API tries to match every word literally, filler included.
+// Open Library's search API returned a real, confirmed 422 error for a
+// bare 2-letter query like "AI" — but works fine once expanded to the
+// full phrase ("artificial intelligence"). This covers the common short
+// tech/study acronyms people are likely to type as their actual goal.
+const ACRONYM_EXPANSIONS = {
+  ai: "artificial intelligence",
+  ml: "machine learning",
+  ux: "user experience design",
+  ui: "user interface design",
+  cs: "computer science",
+  it: "information technology",
+  hr: "human resources",
+  pr: "public relations",
+  seo: "search engine optimization",
+  vr: "virtual reality",
+  ar: "augmented reality",
+  nlp: "natural language processing",
+};
+
+// Maps our internal language codes to what Open Library actually
+// expects (the YouTube equivalent now lives server-side, in
+// videoSearchService.js, since the whole video search call moved there).
+const OPENLIBRARY_LANG_CODES = { en: "eng", ar: "ara", fr: "fre" };
+
+function extractSearchTerm(goal) {
+  if (!goal) return "";
+  let term = goal.trim();
+  term = term.replace(
+    /^(i want to|i'd like to|help me|please|can you)?\s*(understand|learn about|learn|study|read about|explore|master|get into|know about)\s+/i,
+    ""
+  );
+  term = term.trim() || goal;
+
+  // Handle compound/combined acronyms like "AI/ML" or "AI & ML" — split
+  // on non-letter separators, expand any recognized acronym token
+  // individually, and rejoin. A plain exact-string lookup alone would
+  // miss "AI/ML" entirely (it's not a key in the dictionary), which was
+  // producing a poor, narrow search that starved both APIs of results.
+  const tokens = term.split(/[\s/,&]+|\band\b/i).filter(Boolean);
+  if (tokens.length > 0 && tokens.length <= 3) {
+    const expandedTokens = tokens.map((tok) => ACRONYM_EXPANSIONS[tok.toLowerCase()] || tok);
+    const anyExpanded = expandedTokens.some((tok, i) => tok !== tokens[i]);
+    if (anyExpanded) return expandedTokens.join(" ");
+  }
+
+  const wholeMatch = ACRONYM_EXPANSIONS[term.toLowerCase()];
+  return wholeMatch || term;
+}
+
+// SCAFFOLDING — intentionally empty right now. No real local bookstore
+// partnership exists yet (that's a real business conversation still
+// pending, not a technical gap). Once one does — e.g. Jamalon or another
+// store with a real affiliate program — add entries here, keyed by the
+// book's exact title in lowercase, and matching results will
+// immediately start showing a real local-store buy link. Nothing here
+// is fake or placeholder data; it's genuinely empty until real data
+// exists, on purpose.
+const LOCAL_STORE_CATALOG = {
+  // Example of the shape once real data exists (commented out on purpose):
+  // "sophie's world": { storeName: "Jamalon", url: "https://www.jamalon.com/en/example" },
+};
+
+function findLocalStoreLink(book) {
+  if (!book || !book.title) return null;
+  const key = book.title.trim().toLowerCase();
+  return LOCAL_STORE_CATALOG[key] || null;
+}
+
+async function searchBooksOpenLibrary(query, contentLanguage) {
+  try {
+    let url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`;
+    const langCode = OPENLIBRARY_LANG_CODES[contentLanguage];
+    if (langCode) url += `&language=${langCode}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Open Library request failed: " + res.status);
+    const data = await res.json();
+    return (data.docs || []).slice(0, 6).map((doc) => {
+      // "public" ebook_access + a real Internet Archive identifier means
+      // this book is genuinely, legally free to read/download (usually
+      // public domain) — not every book has this, and we only ever link
+      // to the real archive.org details page (never a guessed direct
+      // file URL, since exact file naming isn't guaranteed and a wrong
+      // guess would be a broken link).
+      const hasFreeEbook = doc.ebook_access === "public" && Array.isArray(doc.ia) && doc.ia.length > 0;
+      return {
+        id: doc.key,
+        type: "book",
+        title: doc.title,
+        author: doc.author_name ? doc.author_name[0] : "Unknown author",
+        coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
+        pdfUrl: hasFreeEbook ? `https://archive.org/details/${doc.ia[0]}` : null,
+        reason: `A real, current book match for "${query}".`,
+      };
+    });
+  } catch (err) {
+    console.error("Book search failed, will fall back to the demo catalog:", err);
+    return null;
+  }
+}
+
+// The YouTube key no longer lives in any frontend file — this now calls
+// our own backend, which holds the real key server-side, same pattern
+// as every other secret in this project (Anthropic, Stripe). Same auth
+// + graceful-fallback philosophy as sequenceWithAI/searchContentWithAI.
+async function searchVideosYouTube(query, contentLanguage) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (!accessToken) {
+      console.warn("No active session found — skipping video search.");
+      return null;
+    }
+
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/search-videos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ query, contentLanguage }),
+    });
+    if (!res.ok) throw new Error("video search backend not available");
+    const result = await res.json();
+    return result.items && result.items.length > 0 ? result.items : null;
+  } catch (err) {
+    console.warn("Video search unavailable, will fall back to the demo catalog:", err.message);
+    return null;
+  }
+}
+
+// This is the REAL path builder used whenever a new path is actually
+// created — it fetches live books AND videos instead of using the small
+// hardcoded list for those types. Articles/courses still come from the
+// static demo catalog for now (their own live integrations come later).
+//
+// This function is ALSO used as a fallback when reopening a path that
+// was saved before the `items` column existed (no stored item list to
+// replay) — for every path created after this fix, reopening reads the
+// stored items directly instead of calling this again (see the click
+// handler in renderPathsList).
+async function buildPathReal(goal, contentType, contentLanguage, level) {
+  const topic = resolveTopic(goal);
+  const staticItems = CATALOG[topic].books;
+  const cleanTerm = extractSearchTerm(goal) || topic;
+
+  const wantsBooks = contentType === "books" || contentType === "mix";
+  const wantsVideos = contentType === "videos" || contentType === "mix";
+
+  let bookResults = [];
+  if (wantsBooks) {
+    const liveBooks = await searchBooksOpenLibrary(cleanTerm, contentLanguage);
+    bookResults =
+      liveBooks && liveBooks.length > 0
+        ? liveBooks
+        : filterItems(staticItems, "books", contentLanguage); // API failed/empty — fall back, still honoring language
+  }
+
+  let videoResults = [];
+  if (wantsVideos) {
+    const liveVideos = await searchVideosYouTube(cleanTerm, contentLanguage);
+    videoResults =
+      liveVideos && liveVideos.length > 0
+        ? liveVideos
+        : filterItems(staticItems, "videos", contentLanguage); // API failed/no key/empty — fall back, still honoring language
+  }
+
+  if (contentType === "books") return bookResults;
+  if (contentType === "videos") return videoResults;
+  if (contentType === "mix") {
+    // Articles/courses stay static-only within "mix" for now — a
+    // deliberate scoping choice to keep cost and complexity contained,
+    // since real web search costs more per call than Open Library/
+    // YouTube. Picking "Articles" or "Courses" specifically DOES use
+    // the real live search below.
+    const remainingStatic = staticItems.filter((item) => item.type !== "book" && item.type !== "video");
+    return [...bookResults, ...videoResults, ...remainingStatic];
+  }
+
+  if (contentType === "articles" || contentType === "courses") {
+    const liveContent = await searchContentWithAI(goal, contentType, level || "basics");
+    return liveContent && liveContent.length > 0
+      ? liveContent
+      : filterItems(staticItems, contentType, contentLanguage); // search failed/not configured — fall back to demo data
+  }
+
+  return filterItems(staticItems, contentType, contentLanguage);
+}
+
+// Sends the real, already-fetched items to the backend to be selected
+// and sequenced into a genuine beginner→mastery progression, based on
+// EVERY answer from the questionnaire — level, format, and time
+// commitment — not just the goal. Same fallback philosophy as
+// everywhere else in this app (payment checkout, etc.): try the real
+// backend first, and gracefully degrade — here, to the plain
+// unsequenced live results — if it isn't reachable.
+async function sequenceWithAI(goal, level, format, timeCommitment, items, previouslyCompleted = []) {
+  if (!items || items.length === 0) return items;
+  try {
+    // The backend now requires proof of a real, currently logged-in
+    // session — this is what actually stops anyone who finds this URL
+    // from calling it directly and draining real Anthropic billing with
+    // no relation to genuine site usage.
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (!accessToken) {
+      // Shouldn't normally happen — reaching this point in the flow
+      // always implies a just-completed signup or an existing login —
+      // but degrade gracefully rather than break the experience if it
+      // somehow does.
+      console.warn("No active session found — skipping AI sequencing.");
+      return items;
+    }
+
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/sequence-path`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted }),
+    });
+    if (!res.ok) throw new Error("sequencing backend not available");
+    const result = await res.json();
+    return result.path && result.path.length > 0 ? result.path : items;
+  } catch (err) {
+    console.warn("AI sequencing unavailable, using unsequenced live results:", err.message);
+    return items;
+  }
+}
+
+// Real web search for articles/courses via the backend — no dedicated
+// search API exists for either type, so this asks Claude to actually
+// search the web and compose recommendations, grounded against genuine
+// search results (see contentSearchService.js). Same auth requirement,
+// same graceful-degrade philosophy as sequenceWithAI: on any failure,
+// return null so buildPathReal falls back to the static demo catalog
+// instead of breaking the experience.
+async function searchContentWithAI(goal, contentType, level) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (!accessToken) {
+      console.warn("No active session found — skipping live content search.");
+      return null;
+    }
+
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/search-content`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ goal, contentType, level }),
+    });
+    if (!res.ok) throw new Error("content search backend not available");
+    const result = await res.json();
+    return result.items && result.items.length > 0 ? result.items : null;
+  } catch (err) {
+    console.warn("Live content search unavailable, will fall back to the demo catalog:", err.message);
+    return null;
+  }
+}
+
+document.getElementById("secret-message-btn").addEventListener("click", () => {
+  renderPathGrid();
+  showScreen("reveal");
+});
+
+// ---------- reveal: free/premium locked path ----------
+function renderPathGrid() {
+  const grid = document.getElementById("path-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const path = state.currentPath.length ? state.currentPath : buildPath(state.goal);
+
+  document.getElementById("plan-badge").textContent = state.isPremium
+    ? t("premiumPlan")
+    : `${t("freePlan")} ${path.length}`;
+
+  path.forEach((book, i) => {
+    const locked = !state.isPremium && i > 0;
+    const card = document.createElement("article");
+    card.className = "path-card" + (locked ? " locked" : "");
+
+    if (locked) {
+      // Real accessibility fix: this was previously only clickable with
+      // a mouse — an <article> has no native keyboard behavior at all,
+      // so anyone navigating by keyboard or screen reader couldn't
+      // trigger the upgrade prompt. role="button" + tabindex make it
+      // reachable via Tab; the keydown handler below makes Enter/Space
+      // actually activate it, matching real button behavior.
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("aria-label", `${book.title} — ${t("unlockPrompt")}`);
+      card.innerHTML = `
+        <div class="locked-content">
+          <span class="path-index">${String(i + 1).padStart(2, "0")}</span>
+          <h3>${book.title}</h3>
+          <p>${book.author}</p>
+        </div>
+        <div class="lock-overlay">
+          <span style="font-size:1.3rem">🔒</span>
+          <span class="lock-label">${t("unlockPrompt")}</span>
+        </div>`;
+      card.addEventListener("click", openUpgrade);
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openUpgrade();
+        }
+      });
+    } else {
+      const isBook = book.type === "book" || !book.type;
+      let extraLinksHtml = "";
+
+      if (!isBook && book.url) {
+        extraLinksHtml = `<a href="${book.url}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("open_link")} ↗</a>`;
+      } else if (isBook) {
+        const linkParts = [];
+        if (book.pdfUrl) {
+          linkParts.push(
+            `<a href="${book.pdfUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;margin-right:1rem;display:inline-block">${t("read_free_link")} ↗</a>`
+          );
+        }
+        const localStore = findLocalStoreLink(book);
+        if (localStore) {
+          linkParts.push(
+            `<a href="${localStore.url}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("buy_locally_prefix")} ${localStore.storeName} ↗</a>`
+          );
+        }
+        extraLinksHtml = linkParts.join("");
+      }
+
+      const coverHtml = book.coverUrl
+        ? `<img src="${book.coverUrl}" alt="Cover of ${book.title}" style="width:48px;height:auto;float:left;margin:0 .6rem .4rem 0;border:1px solid rgba(140,107,36,.4)">`
+        : "";
+      card.innerHTML = `
+        <span class="path-index">${String(i + 1).padStart(2, "0")}</span>
+        ${coverHtml}
+        <h3>${book.title}</h3>
+        <p>${book.author} — ${book.reason}</p>
+        ${extraLinksHtml}`;
+    }
+    grid.appendChild(card);
+  });
+
+  const trackerBtn = document.getElementById("tracker-button");
+  trackerBtn.textContent = state.isPremium ? t("unrollTracker") : t("unlockTracker");
+}
+
+// Tracking is a Premium-only feature (as decided) — free users get a
+// prompt to upgrade instead of ever seeing the tracker screen.
+document.getElementById("tracker-button").addEventListener("click", () => {
+  if (!state.isPremium) {
+    openUpgrade();
+    return;
+  }
+  renderTracker();
+  showScreen("tracker");
+});
+
+// ---------- tracker (premium only) ----------
+function renderTracker() {
+  const list = document.getElementById("tracker-list");
+  if (!list) return;
+  list.innerHTML = "";
+  const path = state.currentPath.length ? state.currentPath : buildPath(state.goal);
+
+  path.forEach((book) => {
+    const done = state.completed.has(book.id);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tracker-item" + (done ? " done" : "");
+    btn.setAttribute("aria-pressed", String(done));
+    btn.innerHTML = `
+      <span class="tracker-check">${done ? "✓" : ""}</span>
+      <span class="tracker-book">${book.title}</span>
+      <span class="tracker-stage">${book.author}</span>`;
+    btn.addEventListener("click", async () => {
+      const isDone = state.completed.has(book.id);
+      if (isDone) {
+        state.completed.delete(book.id);
+        if (state.userId && state.currentPathId) {
+          await sb.from("progress").delete()
+            .eq("user_id", state.userId)
+            .eq("book_id", book.id)
+            .eq("path_id", state.currentPathId);
+        }
+      } else {
+        state.completed.add(book.id);
+        if (state.userId && state.currentPathId) {
+          await sb.from("progress").upsert({
+            user_id: state.userId,
+            book_id: book.id,
+            path_id: state.currentPathId,
+            done: true,
+          });
+        }
+      }
+      renderTracker();
+    });
+    list.appendChild(btn);
+  });
+
+  document.getElementById("progress-count").textContent = state.completed.size;
+  document.getElementById("progress-total").textContent = path.length;
+  document.getElementById("progress-label").textContent =
+    state.completed.size === 1 ? t("progressLabelSingle") : t("progressLabel");
+
+  // Only appears once every real item in the current path has actually
+  // been marked complete — this is the moment someone's demonstrated
+  // real progress and a genuine "go deeper" offer makes sense.
+  const allComplete = path.length > 0 && state.completed.size === path.length;
+  document.getElementById("expand-scroll-button").classList.toggle("hidden", !allComplete);
+
+  const newPathBtn = document.getElementById("new-path-button");
+  newPathBtn.textContent = state.isPremium ? t("newPathPremium") : t("newPathFree");
+}
+
+document.getElementById("expand-scroll-button").addEventListener("click", () => {
+  const previouslyCompleted = state.currentPath; // snapshot before anything gets overwritten
+  showScreen("seeking");
+  document.getElementById("email-form").classList.add("hidden");
+  document.getElementById("secret-message-btn").classList.add("hidden");
+  document.getElementById("seeking-status").textContent = "";
+  startSeekingDelay(previouslyCompleted);
+});
+
+document.getElementById("new-path-button").addEventListener("click", () => {
+  if (state.isPremium) {
+    state.goal = "";
+    state.completed = new Set();
+    state.currentPathId = null;
+    goalInput.value = "";
+    goalMessage.textContent = "";
+    showScreen("landing");
+    goalInput.focus();
+  } else {
+    openUpgrade();
+  }
+});
+
+// Reaching the tracker screen always implies a real logged-in account
+// (premium status itself is only ever checked against a real profiles
+// row), so state.userId is guaranteed to already be set here — no need
+// to log in again just to see the list of saved paths.
+document.getElementById("view-paths-button").addEventListener("click", () => {
+  showPathsList();
+});
+
+// Lets someone bounce between the tracker (checklist) and the results
+// screen (covers, reasons, open/buy links) freely, rather than only
+// being able to go one direction.
+document.getElementById("back-to-results-button").addEventListener("click", () => {
+  renderPathGrid();
+  showScreen("reveal");
+});
+
+// A REAL sign-out, not just clearing our own in-memory state. This
+// matters specifically because of the session-persistence feature we
+// built earlier: Supabase's client keeps the session token in the
+// browser so a refresh logs you back in automatically. Without actually
+// calling sb.auth.signOut() here, resetting `state` alone would be
+// pointless — a refresh (or even just navigating within the app) would
+// silently restore the same account, making it impossible to actually
+// switch accounts or log out for real.
+async function logOut() {
+  try {
+    await sb.auth.signOut();
+  } catch (err) {
+    console.error("Sign out failed:", err);
+  }
+
+  state.userId = null;
+  state.isPremium = false;
+  state.currentPath = [];
+  state.currentPathId = null;
+  state.completed = new Set();
+  state.goal = "";
+  goalInput.value = "";
+  goalMessage.textContent = "";
+  showScreen("landing");
+}
+
+document.getElementById("logout-button-paths").addEventListener("click", logOut);
+document.getElementById("logout-button-tracker").addEventListener("click", logOut);
+
+// ---------- verse overlay ----------
+const verseOverlay = document.getElementById("verse-overlay");
+document.getElementById("verse-button").addEventListener("click", () => {
+  verseOverlay.classList.remove("hidden");
+  document.getElementById("close-verse-button").focus();
+});
+document.getElementById("close-verse-button").addEventListener("click", () => {
+  verseOverlay.classList.add("hidden");
+  document.getElementById("verse-button").focus();
+});
+verseOverlay.addEventListener("click", (e) => { if (e.target === verseOverlay) verseOverlay.classList.add("hidden"); });
+
+// ---------- upgrade / payment overlay ----------
+const upgradeOverlay = document.getElementById("upgrade-overlay");
+function openUpgrade() {
+  document.getElementById("checkout-status").textContent = "";
+  upgradeOverlay.classList.remove("hidden");
+}
+document.getElementById("close-upgrade-button").addEventListener("click", () => {
+  upgradeOverlay.classList.add("hidden");
+});
+upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) upgradeOverlay.classList.add("hidden"); });
+
+// Called when Paddle's checkout widget reports the purchase flow
+// completed — this is UX feedback ONLY. It never sets premium status
+// directly, since a browser event could be spoofed by anyone with dev
+// tools open. Instead, it polls Supabase briefly to reflect what the
+// REAL, authoritative source — the server-side webhook — actually set.
+async function handlePaddleCheckoutCompleted() {
+  const status = document.getElementById("checkout-status");
+  const btn = document.getElementById("checkout-button");
+  status.textContent = "Payment received — confirming your account...";
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const { data: profile } = await sb.from("profiles").select("is_premium").eq("id", state.userId).single();
+      if (profile && profile.is_premium) {
+        state.isPremium = true;
+        btn.disabled = false;
+        upgradeOverlay.classList.add("hidden");
+        renderPathGrid();
+        renderTracker();
+        status.textContent = "";
+        return;
+      }
+    } catch (err) {
+      console.warn("Checking premium status failed:", err);
+    }
+  }
+  btn.disabled = false;
+  status.textContent = "Payment received! It may take a moment to reflect — try refreshing shortly.";
+}
+
+document.getElementById("checkout-button").addEventListener("click", async () => {
+  const status = document.getElementById("checkout-status");
+  const btn = document.getElementById("checkout-button");
+  status.textContent = "";
+  btn.disabled = true;
+
+  const priceId = window.PADDLE_PRICE_ID;
+  const paddleReady = window.Paddle && priceId && !priceId.includes("PASTE_YOUR");
+
+  if (paddleReady) {
+    try {
+      Paddle.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        // This is what lets the webhook know WHICH user just paid —
+        // without it, a successful payment would have no way to be
+        // linked back to a specific account.
+        customData: { userId: state.userId },
+      });
+      btn.disabled = false;
+      return;
+    } catch (err) {
+      console.warn("Paddle checkout failed to open, falling back to demo unlock:", err);
+    }
+  }
+
+  // Demo fallback — same philosophy as everywhere else in this app: try
+  // the real provider first, gracefully degrade if it isn't configured
+  // yet (e.g. still testing locally without real Paddle keys).
+  console.warn("Paddle not configured, using demo unlock instead.");
+  setTimeout(async () => {
+    state.isPremium = true;
+    if (state.userId) {
+      await sb.from("profiles").upsert({ id: state.userId, is_premium: true });
+    }
+    btn.disabled = false;
+    upgradeOverlay.classList.add("hidden");
+    renderPathGrid();
+    renderTracker();
+  }, 900);
+});
+
+applyLang("en");
+if (window.lucide) lucide.createIcons();
+
+// ---------- restore session on page load ----------
+// Supabase's client already remembers the session across a refresh (it
+// saves it in the browser automatically) — the gap was that OUR OWN app
+// state (state.userId, state.isPremium) never bothered to check. This
+// runs once, right when the page loads, and asks Supabase directly:
+// "is anyone actually still logged in?"
+(async function restoreSession() {
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error) {
+      console.error("Could not check for an existing session:", error.message);
+      return;
+    }
+
+    const session = data.session;
+    if (!session) return; // nobody logged in — a normal fresh visit, stay on the landing page
+
+    state.userId = session.user.id;
+
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("is_premium")
+      .eq("id", session.user.id)
+      .single();
+    state.isPremium = profile ? profile.is_premium : false;
+
+    // Same destination as a manual login — their real saved paths list,
+    // not a guess at which single path to show.
+    await showPathsList();
+  } catch (err) {
+    console.error("Session restore failed:", err);
+  }
+})();
+
+// ---------- cookie / local storage consent banner ----------
+(function initCookieBanner() {
+  const CONSENT_KEY = "bayt_al_hikma_cookie_consent";
+  const banner = document.getElementById("cookie-consent-banner");
+  const acceptBtn = document.getElementById("cookie-accept-button");
+  if (!banner || !acceptBtn) return;
+
+  let alreadyConsented = false;
+  try {
+    alreadyConsented = localStorage.getItem(CONSENT_KEY) === "yes";
+  } catch (err) {
+    // Storage can be unavailable in some private-browsing situations —
+    // fail safe by just not showing the banner rather than crashing.
+    console.warn("Could not check cookie consent status:", err);
+    return;
+  }
+
+  if (!alreadyConsented) {
+    banner.classList.remove("hidden");
+  }
+
+  acceptBtn.addEventListener("click", () => {
+    try {
+      localStorage.setItem(CONSENT_KEY, "yes");
+    } catch (err) {
+      console.warn("Could not save cookie consent choice:", err);
+    }
+    banner.classList.add("hidden");
+  });
+})();

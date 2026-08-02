@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en" dir="ltr"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bayt Al-Hikma</title>
+  <!-- Sentry error monitoring — must load FIRST to catch errors from
+       everything else on the page. Replace YOUR_SENTRY_PUBLIC_KEY with
+       your real key from: Sentry → Settings → Projects → SDK Setup →
+       Loader Script. Until you do, this 404s harmlessly — nothing else
+       on the site is affected. -->
+  <script src="https://js-de.sentry-cdn.com/5305ad2ffaa094e220afd50764637b75.min.js" crossorigin="anonymous"></script>
+  <!-- Umami analytics — cookieless, no personal data collected, no
+       consent banner interaction needed. Replace YOUR-WEBSITE-ID with
+       the real ID from: Umami → Settings → Websites → (your site) →
+       Edit → Tracking code. Also harmless if left as a placeholder. -->
+  <script defer src="https://cloud.umami.is/script.js" data-website-id="7604c7d3-270c-4139-8f97-d5cbca2e3b9f"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Naskh+Arabic:wght@500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2">
+ </head>
+ <body style="background: rgb(16, 25, 59);">
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div class="app-shell">
+   <div id="cookie-consent-banner" class="cookie-banner hidden" role="region" aria-label="Cookie notice">
+    <p>
+     <span data-i18n="cookie_banner_text">We use local browser storage to keep you logged in, and may use basic analytics to understand how the site is used.</span>
+     <a href="privacy-policy.html" target="_blank" rel="noopener" data-i18n="cookie_learn_more">Learn more</a>
+    </p>
+    <button type="button" id="cookie-accept-button" class="action-button" data-i18n="cookie_accept" style="white-space:nowrap">Got it</button>
+   </div>
+   <!-- TOP BAR -->
+   <nav class="top-bar" aria-label="Settings">
+    <div class="top-bar-group"><button type="button" class="lang-btn active-lang" data-lang="en">EN</button> <button type="button" class="lang-btn" data-lang="ar">عر</button> <button type="button" class="lang-btn" data-lang="fr">FR</button>
+    </div>
+    <div class="location-picker">
+     <button type="button" id="location-current" class="location-badge" aria-haspopup="listbox" aria-expanded="false">🇱🇧 Lebanon</button>
+     <ul id="location-list" class="location-list hidden" role="listbox"></ul>
+    </div>
+   </nav>
+   <main id="main-content" aria-live="polite"><!-- LANDING -->
+    <section id="landing-screen" class="screen dark-room active" aria-labelledby="landing-title">
+     <div class="content-frame">
+      <header class="wordmark"><span class="wordmark-mark" aria-hidden="true">✦</span>
+       <div>
+        <div class="wordmark-main">Bayt Al-Hikma</div>
+        <div class="wordmark-arabic" dir="rtl">بيت الحكمة</div>
+       </div>
+      </header>
+      <div class="landing-grid">
+       <div class="landing-copy">
+        <p class="eyebrow" data-i18n="landing_eyebrow">The House of Wisdom</p>
+        <h1 id="landing-title" class="display-heading" data-i18n="landing_title" style="color: rgb(244, 233, 216); font-weight: 700; font-size: 62px;">Enter the house. Find the path made for your mind.</h1>
+        <div class="gold-rule" aria-hidden="true"></div>
+        <p class="lede" data-i18n="landing_lede">Across languages and centuries, knowledge waits in the rooms ahead. Tell the hoopoe what you seek, and let it guide you toward a considered path of books.</p>
+        <form id="goal-form" class="goal-panel">
+         <div class="goal-panel-inner"><label class="sr-only" for="goal-input">What are you seeking?</label> <input id="goal-input" class="goal-input" type="text" autocomplete="off" data-i18n-placeholder="goalPlaceholder" placeholder="I want to understand philosophy"> <button type="submit" class="action-button" data-i18n="enter_house">Enter the house</button>
+         </div>
+        </form>
+        <p id="goal-message" class="inline-message" role="status"></p>
+        <button type="button" id="returning-link" class="text-button" data-i18n="returningLink">Been here before? Log in</button>
+        <div id="returning-panel" class="auth-panel hidden">
+          <p class="auth-panel-title" data-i18n="returningPrompt">Did you enter before? Come with me.</p>
+          <input type="email" id="return-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
+          <input type="password" id="return-password" data-i18n-placeholder="passwordPlaceholder" placeholder="••••••••">
+          <button type="button" id="return-login-btn" class="action-button" data-i18n="return_login">Take me to my track</button>
+          <p id="return-message" class="inline-message" role="status"></p>
+          <button type="button" id="forgot-password-link" class="text-button" data-i18n="forgot_password" style="margin-top:.4rem">Forgot password?</button>
+          <div id="reset-request-panel" class="auth-panel hidden" style="margin-top:.6rem">
+            <p class="auth-panel-title" data-i18n="reset_prompt">Enter your email and we'll send a reset link.</p>
+            <input type="email" id="reset-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
+            <button type="button" id="send-reset-link-btn" class="action-button" data-i18n="send_reset_link">Send reset link</button>
+            <p id="reset-request-message" class="inline-message" role="status"></p>
+          </div>
+        </div>
+       </div>
+       <aside class="hoopoe-stage" aria-label="The hoopoe welcomes you"><span class="small-star star-one" aria-hidden="true">✦</span> <span class="small-star star-two" aria-hidden="true">✧</span> <span class="small-star star-three" aria-hidden="true">✦</span>
+        <div class="astrolabe" aria-hidden="true"></div>
+        <div class="hoopoe-medallion"><img src="assets/hoopoe/welcome.png" alt="Illustrated hoopoe with wings spread open above an ancient manuscript">
+        </div>
+       </aside>
+      </div>
+     </div>
+    </section><!-- QUESTIONS -->
+    <section id="questions-screen" class="screen dark-room" aria-labelledby="questions-title">
+     <div class="content-frame question-layout">
+      <aside class="side-bird" aria-label="The hoopoe guides the next step"><img src="assets/hoopoe/guiding.png" alt="Illustrated hoopoe in walking pose with distinctive crest and striped wings">
+      </aside>
+      <section class="question-card">
+       <p class="eyebrow paper-eyebrow" data-i18n="questions_eyebrow">A few steps deeper</p>
+       <h2 id="questions-title" class="display-heading" data-i18n="questions_title" style="color: rgb(27, 42, 87); font-weight: 700; font-size: 43px;">Let the hoopoe know where to begin.</h2>
+       <p class="question-intro" data-i18n="questions_intro">A little context helps shape a path with the right pace, depth, and form.</p>
+       <div class="question-group">
+        <h3 class="question-label" data-i18n="level_label">Where are you beginning?</h3>
+        <div class="chip-group" role="group" aria-label="Reading level"><button type="button" class="option-chip" data-group="level" data-value="new" aria-pressed="false" data-i18n="level_new">New to this</button> <button type="button" class="option-chip selected" data-group="level" data-value="basics" aria-pressed="true" data-i18n="level_basics">I know some basics</button> <button type="button" class="option-chip" data-group="level" data-value="wellread" aria-pressed="false" data-i18n="level_wellread">Already well-read</button>
+        </div>
+       </div>
+       <div class="question-group">
+        <h3 class="question-label" data-i18n="content_type_label">What kind of path fits you?</h3>
+        <div class="chip-group" role="group" aria-label="Content type"><button type="button" class="option-chip selected" data-group="contentType" data-value="books" aria-pressed="true" data-i18n="content_books">Books</button> <button type="button" class="option-chip" data-group="contentType" data-value="articles" aria-pressed="false" data-i18n="content_articles">Articles</button> <button type="button" class="option-chip" data-group="contentType" data-value="videos" aria-pressed="false" data-i18n="content_videos">Videos</button> <button type="button" class="option-chip" data-group="contentType" data-value="courses" aria-pressed="false" data-i18n="content_courses">Courses</button> <button type="button" class="option-chip" data-group="contentType" data-value="mix" aria-pressed="false" data-i18n="content_mix">A mix of everything</button>
+        </div>
+       </div>
+       <div class="question-group">
+        <h3 class="question-label" data-i18n="content_language_label">Which language do you want this in?</h3>
+        <div class="chip-group" role="group" aria-label="Content language"><button type="button" class="option-chip selected" data-group="contentLanguage" data-value="any" aria-pressed="true" data-i18n="lang_no_preference">No preference</button> <button type="button" class="option-chip" data-group="contentLanguage" data-value="en" aria-pressed="false" data-i18n="lang_english">English</button> <button type="button" class="option-chip" data-group="contentLanguage" data-value="ar" aria-pressed="false" data-i18n="lang_arabic">Arabic</button> <button type="button" class="option-chip" data-group="contentLanguage" data-value="fr" aria-pressed="false" data-i18n="lang_french">French</button>
+        </div>
+       </div>
+       <div class="question-group" id="book-format-group">
+        <h3 class="question-label" data-i18n="format_label">How do you prefer to read?</h3>
+        <div class="chip-group" role="group" aria-label="Reading format"><button type="button" class="option-chip selected" data-group="format" data-value="physical" aria-pressed="true" data-i18n="format_physical">Physical books</button> <button type="button" class="option-chip" data-group="format" data-value="digital" aria-pressed="false" data-i18n="format_digital">Digital reading</button> <button type="button" class="option-chip" data-group="format" data-value="either" aria-pressed="false" data-i18n="format_either">Either way</button>
+        </div>
+       </div>
+       <div class="question-group">
+        <h3 class="question-label" data-i18n="time_label">How much time can you give it?</h3>
+        <div class="chip-group" role="group" aria-label="Time commitment"><button type="button" class="option-chip" data-group="time" data-value="quick" aria-pressed="false" data-i18n="time_quick">Quick pieces</button> <button type="button" class="option-chip selected" data-group="time" data-value="moderate" aria-pressed="true" data-i18n="time_moderate">A steady pace</button> <button type="button" class="option-chip" data-group="time" data-value="deep" aria-pressed="false" data-i18n="time_deep">Deep, immersive study</button>
+        </div>
+       </div><button type="button" id="continue-button" class="action-button" data-i18n="continue_deeper">Continue deeper</button>
+      </section>
+     </div>
+    </section><!-- SEEKING -->
+    <section id="seeking-screen" class="screen dark-room" aria-labelledby="seeking-title">
+     <div class="content-frame seeking-frame">
+      <p class="eyebrow" data-i18n="seeking_eyebrow">The gathering of knowledge</p>
+      <h2 id="seeking-title" class="display-heading" data-i18n="seeking_title" style="color: rgb(244, 233, 216); font-weight: 700; font-size: 50px;">The hoopoe has gone to gather what you seek.</h2>
+      <p class="lede" data-i18n="seeking_lede">It travels between the shelves, tracing the first book to the next, until a path begins to appear.</p>
+      <div class="seeking-bird-wrap"><img src="assets/hoopoe/seeking.png" alt="Illustrated hoopoe in flight with wings fully spread">
+      </div><!-- Signup form -->
+      <form id="email-form" class="email-panel">
+       <div class="email-panel-inner">
+         <label class="sr-only" for="email-input">Your email</label> <input id="email-input" class="email-input" type="email" autocomplete="email" data-i18n-placeholder="emailPlaceholder" placeholder="your@email.com">
+         <label class="sr-only" for="signup-password">Password</label> <input id="signup-password" class="email-input" type="password" autocomplete="new-password" data-i18n-placeholder="choosePasswordPlaceholder" placeholder="choose a password" style="flex:1 1 100%;">
+         <label style="flex:1 1 100%; display:flex; align-items:flex-start; gap:.5rem; font-size:.8rem; color:rgba(244,233,216,.85); text-align:left; cursor:pointer;">
+           <input type="checkbox" id="agree-terms-checkbox" style="margin-top:.2rem;">
+           <span>
+             <span data-i18n="agree_prefix">I agree to the</span>
+             <a href="terms-of-service.html" target="_blank" rel="noopener" data-i18n="terms_link_text" style="color:var(--light-gold);">Terms of Service</a>
+             <span data-i18n="agree_and">and</span>
+             <a href="privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacy_link_text" style="color:var(--light-gold);">Privacy Policy</a>
+           </span>
+         </label>
+         <button type="submit" class="action-button" data-i18n="send_button">Send to me</button>
+       </div>
+      </form>
+      <div id="searching-dots" class="searching-dots hidden" aria-label="Searching">
+       <span></span><span></span><span></span>
+      </div>
+      <p id="signup-message" class="inline-message" role="status"></p>
+      <button type="button" id="signup-goto-login-btn" class="text-button hidden" data-i18n="goto_login">Log in instead</button>
+      <p id="seeking-status" class="status-note" role="status"></p><button type="button" id="secret-message-btn" class="secret-message-btn hidden">✦ A hidden message awaits — tap to reveal your path ✦</button>
+     </div>
+    </section><!-- REVEAL -->
+    <section id="reveal-screen" class="screen paper-room" aria-labelledby="reveal-title">
+     <section class="manuscript-frame">
+      <header class="manuscript-header">
+       <span id="plan-badge" class="plan-badge">Free plan · step 1 of 4</span>
+       <p class="eyebrow paper-eyebrow" data-i18n="reveal_eyebrow">A manuscript prepared for you</p>
+       <h2 id="reveal-title" class="display-heading" data-i18n="reveal_title" style="color: rgb(27, 42, 87); font-weight: 700; font-size: 51px;">Your path of understanding</h2>
+       <p class="manuscript-subtitle" data-i18n="reveal_subtitle">A patient sequence: begin with the door, learn the language of the room, and continue into the deeper chambers.</p>
+      </header>
+      <div class="presenting-row"><button type="button" id="verse-button" class="hoopoe-button" aria-label="Open the hoopoe's story"> <img src="assets/hoopoe/presenting.png" alt="Illustrated hoopoe in perched pose with raised crest"> </button>
+      </div>
+      <p class="tap-note" data-i18n="tap_note">Tap the hoopoe to hear its story</p>
+      <div id="path-grid" class="path-grid"><!-- rendered by JS --></div>
+      <div class="manuscript-action"><button type="button" id="tracker-button" class="action-button" style="background: rgb(27, 42, 87); color: rgb(244, 233, 216);">Unroll my tracker</button>
+      </div>
+     </section>
+    </section><!-- PATHS LIST (shown after login) -->
+    <section id="paths-screen" class="screen dark-room" aria-labelledby="paths-title">
+     <div class="content-frame seeking-frame">
+      <p class="eyebrow" data-i18n="paths_eyebrow">Your saved paths</p>
+      <h2 id="paths-title" class="display-heading" data-i18n="paths_title" style="color: rgb(244, 233, 216); font-weight: 700; font-size: 44px;">Which path calls you today?</h2>
+      <div id="paths-list-container" style="max-width:460px;margin:1.5rem auto;text-align:left;"></div>
+      <button type="button" id="start-new-path-button" class="action-button">Begin another path</button>
+      <button type="button" id="logout-button-paths" class="text-button" data-i18n="logout_button" style="margin-top:.8rem">Log out</button>
+     </div>
+    </section><!-- TRACKER (premium only) -->
+    <section id="tracker-screen" class="screen dark-room" aria-labelledby="tracker-title">
+     <div class="content-frame tracker-layout">
+      <section class="tracker-copy">
+       <p class="eyebrow" data-i18n="tracker_eyebrow">Keep the path</p>
+       <h2 id="tracker-title" class="display-heading" data-i18n="tracker_title" style="color: rgb(244, 233, 216); font-weight: 700; font-size: 53px;">Your scroll of wisdom</h2>
+       <p class="lede" data-i18n="tracker_lede">Mark each threshold crossed. A path becomes wisdom only when it is walked.</p>
+       <div class="progress-seal" aria-label="Reading progress">
+        <div class="progress-number"><span id="progress-count">0</span>/<span id="progress-total">4</span><small id="progress-label">complete</small>
+        </div>
+       </div>
+       <button type="button" id="expand-scroll-button" class="action-button hidden" data-i18n="expand_scroll" style="margin-bottom:.8rem">Expand my scroll</button>
+       <button type="button" id="back-to-results-button" class="text-button" data-i18n="back_to_results">See covers and links again</button>
+       <button type="button" id="new-path-button" class="text-button">Begin another path</button>
+       <button type="button" id="view-paths-button" class="text-button" data-i18n="view_paths">View my paths</button>
+       <button type="button" id="logout-button-tracker" class="text-button" data-i18n="logout_button">Log out</button>
+      </section>
+      <section class="tracker-paper">
+       <h3 class="tracker-heading" data-i18n="tracker_heading">The path before you</h3>
+       <div id="tracker-list" class="tracker-list"><!-- rendered by JS --></div>
+      </section>
+     </div>
+    </section>
+   </main><!-- VERSE OVERLAY -->
+   <aside id="verse-overlay" class="verse-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="verse-title">
+    <section class="verse-card">
+     <p class="eyebrow paper-eyebrow" data-i18n="verse_eyebrow">The hoopoe's message</p>
+     <h2 id="verse-title" class="display-heading" data-i18n="verse_heading" style="color: rgb(27, 42, 87); font-weight: 700; font-size: 42px;">A seeker brings certain news</h2>
+     <p class="verse-arabic" dir="rtl">وَتَفَقَّدَ الطَّيْرَ فَقَالَ مَا لِيَ لَا أَرَى الْهُدْهُدَ أَمْ كَانَ مِنَ الْغَائِبِينَ ۝ فَمَكَثَ غَيْرَ بَعِيدٍ فَقَالَ أَحَطتُ بِمَا لَمْ تُحِطْ بِهِ وَجِئْتُكَ مِن سَبَإٍ بِنَبَإٍ يَقِينٍ</p>
+     <p class="verse-translation">"And he took attendance of the birds and said, 'Why do I not see the hoopoe — or is he among the absent?' But the hoopoe stayed not long and said, 'I have encompassed in knowledge that which you have not encompassed, and I have come to you from Sheba with certain news.'"</p>
+     <p class="verse-source">Surah An-Naml 27:20–22 · Translation adapted from Sahih International</p><button type="button" id="close-verse-button" class="close-verse" data-i18n="close_verse">Return to the manuscript</button>
+    </section>
+   </aside><!-- UPGRADE / PAYMENT OVERLAY -->
+   <aside id="upgrade-overlay" class="verse-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-title">
+    <section class="verse-card">
+     <p class="eyebrow paper-eyebrow" data-i18n="upgrade_eyebrow">Unlock the rest of the house</p>
+     <h2 id="upgrade-title" class="display-heading" style="color: rgb(27, 42, 87); font-weight: 700; font-size: 38px;">Bayt Al-Hikma Premium</h2>
+     <div class="pricing-card">
+       <div class="pricing-amount">$4.99<span class="pricing-period" data-i18n="pricing_period">/month</span></div>
+       <ul class="pricing-features">
+         <li data-i18n="pricing_feature_1">Every step of every path, not just the first</li>
+         <li data-i18n="pricing_feature_2">Unlimited new paths, any time</li>
+         <li data-i18n="pricing_feature_3">Full progress tracking across all your paths</li>
+       </ul>
+       <button type="button" id="checkout-button" class="action-button" data-i18n="checkout_button" style="width:100%; background: rgb(27,42,87); color: rgb(244,233,216); border-color: rgb(27,42,87);">Upgrade to Premium</button>
+       <p id="checkout-status" class="inline-message" role="status" style="color: var(--bronze-on-paper);"></p>
+     </div>
+     <button type="button" id="close-upgrade-button" class="close-verse" data-i18n="not_now">Not now</button>
+    </section>
+   </aside><!-- NEW PASSWORD OVERLAY (shown automatically after clicking a reset-link email) -->
+   <aside id="new-password-overlay" class="verse-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="new-password-title">
+    <section class="verse-card">
+     <p class="eyebrow paper-eyebrow" data-i18n="new_password_eyebrow">Set a new password</p>
+     <h2 id="new-password-title" class="display-heading" style="color: rgb(27, 42, 87); font-weight: 700; font-size: 38px;" data-i18n="new_password_title">Choose a new password</h2>
+     <div class="pricing-card">
+       <input type="password" id="new-password-input" data-i18n-placeholder="choosePasswordPlaceholder" placeholder="choose a password" style="width:100%;margin-bottom:.7rem;padding:.7rem .8rem;border:1px solid rgba(140,107,36,.4)">
+       <button type="button" id="update-password-btn" class="action-button" data-i18n="update_password_button" style="width:100%">Update password</button>
+       <p id="new-password-message" class="inline-message" role="status" style="color: var(--bronze-on-paper);"></p>
+     </div>
+    </section>
+   </aside>
+  </div>
+  <script src="supabase-config.js"></script>
+  <script src="backend-config.js"></script>
+  <script src="paddle-config.js"></script>
+  <script src="app.js"></script>
+ </body></html>
+
+<!--<script src="https://js-de.sentry-cdn.com/5305ad2ffaa094e220afd50764637b75.min.js" crossorigin="anonymous"></script>-->
+<!--<script defer src="https://cloud.umami.is/script.js" data-website-id="7604c7d3-270c-4139-8f97-d5cbca2e3b9f"></script>-->

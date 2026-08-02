@@ -1,0 +1,8 @@
+{
+  "goal": "understand philosophy",
+  "level": "new",
+  "items": [
+    {"id": "1", "type": "book", "title": "Sophie's World", "author": "Jostein Gaarder"},
+    {"id": "2", "type": "book", "title": "The Republic", "author": "Plato"}
+  ]
+}

@@ -1,0 +1,12 @@
+# NEVER commit real secrets — this is the single most important line
+# in this file. Only .env.example (which has no real keys) gets committed.
+.env
+payments-backend/.env
+
+# Dependencies — reinstalled via `npm install`, shouldn't be in git
+node_modules/
+payments-backend/node_modules/
+
+# OS/editor clutter
+.DS_Store
+Thumbs.db
