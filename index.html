@@ -8,6 +8,17 @@
        your real key from: Sentry → Settings → Projects → SDK Setup →
        Loader Script. Until you do, this 404s harmlessly — nothing else
        on the site is affected. -->
+  <script>
+    // Tags every error with the real environment it happened in — local
+    // testing (Live Server, 127.0.0.1) vs. your actual deployed site —
+    // so real production issues never get buried in local-testing
+    // noise. Fully automatic based on the actual URL the page is
+    // running on; nothing to remember to change when deploying.
+    window.sentryOnLoad = function () {
+      const isLocalDev = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
+      Sentry.init({ environment: isLocalDev ? "development" : "production" });
+    };
+  </script>
   <script src="https://js-de.sentry-cdn.com/5305ad2ffaa094e220afd50764637b75.min.js" crossorigin="anonymous"></script>
   <!-- Umami analytics — cookieless, no personal data collected, no
        consent banner interaction needed. Replace YOUR-WEBSITE-ID with
