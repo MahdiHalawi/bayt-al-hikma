@@ -120,7 +120,15 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 // browser event, which could be spoofed by anyone with dev tools open.
 app.post("/webhook-paddle", express.raw({ type: "application/json" }), async (req, res) => {
   const signatureHeader = req.headers["paddle-signature"];
+
+  // TEMPORARY DEBUG — remove once the signature issue is confirmed fixed.
+  console.log("DEBUG: PADDLE_WEBHOOK_SECRET length:", process.env.PADDLE_WEBHOOK_SECRET ? process.env.PADDLE_WEBHOOK_SECRET.length : 0);
+  console.log("DEBUG: PADDLE_WEBHOOK_SECRET first 6 chars:", process.env.PADDLE_WEBHOOK_SECRET ? process.env.PADDLE_WEBHOOK_SECRET.slice(0, 6) : "none");
+  console.log("DEBUG: PADDLE_WEBHOOK_SECRET last 6 chars:", process.env.PADDLE_WEBHOOK_SECRET ? process.env.PADDLE_WEBHOOK_SECRET.slice(-6) : "none");
+  console.log("DEBUG: signature header received:", signatureHeader);
+
   const isValid = verifyPaddleSignature(req.body, signatureHeader, process.env.PADDLE_WEBHOOK_SECRET);
+  console.log("DEBUG: signature valid?", isValid);
 
   if (!isValid) {
     console.error("Paddle webhook signature verification failed — rejecting.");
