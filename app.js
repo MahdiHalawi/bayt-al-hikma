@@ -406,10 +406,22 @@ const state = {
 };
 
 const COUNTRIES = [
-  { name: "Lebanon", flag: "🇱🇧" },
-  { name: "Jordan", flag: "🇯🇴" },
-  { name: "United Arab Emirates", flag: "🇦🇪" },
+  { name: "Lebanon", code: "lb" },
+  { name: "Jordan", code: "jo" },
+  { name: "United Arab Emirates", code: "ae" },
 ];
+
+// Real flag IMAGES instead of emoji characters. Emoji flags render
+// inconsistently across platforms — Windows in particular commonly
+// falls back to showing the raw two-letter country code as plain text
+// instead of an actual flag, since many of its default fonts simply
+// don't include color flag emoji glyphs at all. Using real images
+// guarantees the same visual result everywhere, same reasoning as
+// using real book cover images rather than hoping for consistent emoji
+// rendering.
+function flagImg(code) {
+  return `<img src="https://flagcdn.com/20x15/${code}.png" alt="" width="20" height="15" style="vertical-align:middle;margin-right:.35rem;border-radius:2px;">`;
+}
 
 // ---------- screen navigation ----------
 const screens = {
@@ -441,11 +453,11 @@ function renderLocationList() {
   COUNTRIES.forEach((c) => {
     const li = document.createElement("li");
     li.role = "option";
-    li.textContent = `${c.flag} ${c.name}`;
+    li.innerHTML = `${flagImg(c.code)}${c.name}`;
     li.dataset.country = c.name;
     li.addEventListener("click", () => {
       state.country = c.name;
-      locationCurrent.textContent = `${c.flag} ${c.name}`;
+      locationCurrent.innerHTML = `${flagImg(c.code)}${c.name}`;
       closeLocationList();
     });
     locationList.appendChild(li);
@@ -611,6 +623,7 @@ document.getElementById("return-login-btn").addEventListener("click", async () =
     .eq("id", data.user.id)
     .single();
   state.isPremium = profile ? profile.is_premium : false;
+  celebrateIfNewlyPremium(state.isPremium);
 
   document.getElementById("returning-panel").classList.add("hidden");
   await showPathsList();
@@ -1427,6 +1440,32 @@ document.getElementById("close-upgrade-button").addEventListener("click", () => 
 });
 upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) upgradeOverlay.classList.add("hidden"); });
 
+// Remembers the last known premium status in localStorage — this lets
+// us reliably detect "you just became premium" from ANY place that
+// fetches the real status (login, session restore, or right after
+// paying), not just the one narrow page/session where a payment
+// happened. This matters because a real payment's confirmation often
+// only actually shows up the NEXT time the app checks — e.g. after a
+// refresh, or coming back later — not necessarily while someone is
+// still watching the exact tab where they paid.
+function celebrateIfNewlyPremium(isPremiumNow) {
+  const KEY = "bayt_al_hikma_last_known_premium";
+  let wasPremiumBefore = false;
+  try {
+    wasPremiumBefore = localStorage.getItem(KEY) === "yes";
+  } catch (err) {
+    return; // storage unavailable — just skip the celebration, not fatal
+  }
+  if (isPremiumNow && !wasPremiumBefore) {
+    celebratePremiumUnlock();
+  }
+  try {
+    localStorage.setItem(KEY, isPremiumNow ? "yes" : "no");
+  } catch (err) {
+    // Non-fatal if this fails.
+  }
+}
+
 // A brief, tasteful moment when someone genuinely becomes premium —
 // called from both the real Paddle confirmation and the demo fallback,
 // so the experience feels the same regardless of which path granted it.
@@ -1470,7 +1509,7 @@ async function handlePaddleCheckoutCompleted() {
         renderPathGrid();
         renderTracker();
         status.textContent = "";
-        celebratePremiumUnlock();
+        celebrateIfNewlyPremium(state.isPremium);
         return;
       }
     } catch (err) {
@@ -1519,7 +1558,7 @@ document.getElementById("checkout-button").addEventListener("click", async () =>
     upgradeOverlay.classList.add("hidden");
     renderPathGrid();
     renderTracker();
-    celebratePremiumUnlock();
+    celebrateIfNewlyPremium(state.isPremium);
   }, 900);
 });
 
@@ -1551,6 +1590,7 @@ if (window.lucide) lucide.createIcons();
       .eq("id", session.user.id)
       .single();
     state.isPremium = profile ? profile.is_premium : false;
+    celebrateIfNewlyPremium(state.isPremium);
 
     // Same destination as a manual login — their real saved paths list,
     // not a guess at which single path to show.

@@ -864,7 +864,6 @@
       .goal-panel-inner, .email-panel-inner { flex-direction: column; }
       .action-button { width: 100%; }
       .path-grid { grid-template-columns: 1fr; }
-      .wordmark-arabic { display: none; }
       .display-heading { line-height: 1; }
     }
 
