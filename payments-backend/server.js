@@ -54,6 +54,14 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 const app = express();
 
+// Render (and most hosts) sit your app behind a reverse proxy, which
+// forwards the real visitor's IP via X-Forwarded-For. Without this,
+// express-rate-limit either can't reliably identify who's making
+// requests, or — worse — could be spoofed by someone faking that
+// header to bypass the rate limit entirely. "1" means trust exactly
+// one hop of proxying, which matches Render's setup.
+app.set("trust proxy", 1);
+
 // Restricted to your actual frontend's URL once CLIENT_URL is set —
 // without this, ANY website could make requests to this backend
 // directly. Left permissive (with a warning) when CLIENT_URL isn't set,
@@ -112,30 +120,12 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 // browser event, which could be spoofed by anyone with dev tools open.
 app.post("/webhook-paddle", express.raw({ type: "application/json" }), async (req, res) => {
   const signatureHeader = req.headers["paddle-signature"];
-
-  console.log("DEBUG: content-type header:", req.headers["content-type"]);
-  console.log("DEBUG: typeof req.body:", typeof req.body);
-  console.log("DEBUG: is req.body a Buffer?", Buffer.isBuffer(req.body));
-  console.log("DEBUG: req.body length:", req.body ? req.body.length : "N/A");
-  console.log("DEBUG: signature header received:", signatureHeader);
-  console.log("DEBUG: PADDLE_WEBHOOK_SECRET is set?", !!process.env.PADDLE_WEBHOOK_SECRET);
-  console.log("DEBUG: PADDLE_WEBHOOK_SECRET length:", process.env.PADDLE_WEBHOOK_SECRET ? process.env.PADDLE_WEBHOOK_SECRET.length : 0);
-
   const isValid = verifyPaddleSignature(req.body, signatureHeader, process.env.PADDLE_WEBHOOK_SECRET);
-  console.log("DEBUG: signature valid?", isValid);
 
-// Extra-detailed diagnostic — computes the signature manually here,
-// and checks for invisible characters at the exact start/end of the
-// body, which a normal console.log print wouldn't reveal.
-const crypto = require("crypto");
-const parts = {};
-signatureHeader.split(";").forEach((seg) => { const [k, v] = seg.split("="); if (k && v) parts[k] = v; });
-const manualPayload = `${parts.ts}:${req.body}`;
-const manualComputed = crypto.createHmac("sha256", process.env.PADDLE_WEBHOOK_SECRET).update(manualPayload).digest("hex");
-console.log("DEBUG: manually computed signature:", manualComputed);
-console.log("DEBUG: received h1 value:          ", parts.h1);
-console.log("DEBUG: first 5 char codes of body:", [...req.body.toString("utf8").slice(0, 5)].map(c => c.charCodeAt(0)));
-console.log("DEBUG: last 5 char codes of body: ", [...req.body.toString("utf8").slice(-5)].map(c => c.charCodeAt(0)));
+  if (!isValid) {
+    console.error("Paddle webhook signature verification failed — rejecting.");
+    return res.status(400).send("Invalid signature");
+  }
 
   let event;
   try {
