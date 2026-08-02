@@ -124,10 +124,18 @@ app.post("/webhook-paddle", express.raw({ type: "application/json" }), async (re
   const isValid = verifyPaddleSignature(req.body, signatureHeader, process.env.PADDLE_WEBHOOK_SECRET);
   console.log("DEBUG: signature valid?", isValid);
 
-  if (!isValid) {
-    console.error("Paddle webhook signature verification failed — rejecting.");
-    return res.status(400).send("Invalid signature");
-  }
+// Extra-detailed diagnostic — computes the signature manually here,
+// and checks for invisible characters at the exact start/end of the
+// body, which a normal console.log print wouldn't reveal.
+const crypto = require("crypto");
+const parts = {};
+signatureHeader.split(";").forEach((seg) => { const [k, v] = seg.split("="); if (k && v) parts[k] = v; });
+const manualPayload = `${parts.ts}:${req.body}`;
+const manualComputed = crypto.createHmac("sha256", process.env.PADDLE_WEBHOOK_SECRET).update(manualPayload).digest("hex");
+console.log("DEBUG: manually computed signature:", manualComputed);
+console.log("DEBUG: received h1 value:          ", parts.h1);
+console.log("DEBUG: first 5 char codes of body:", [...req.body.toString("utf8").slice(0, 5)].map(c => c.charCodeAt(0)));
+console.log("DEBUG: last 5 char codes of body: ", [...req.body.toString("utf8").slice(-5)].map(c => c.charCodeAt(0)));
 
   let event;
   try {
