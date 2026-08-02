@@ -874,7 +874,7 @@
     }
 
     @media (max-width: 780px) {
-      .screen { padding: 3.5rem 1rem 1rem; align-items: flex-start; }
+      .screen { padding: 4.5rem 1rem 1rem; align-items: flex-start; }
       .landing-grid, .question-layout, .tracker-layout { grid-template-columns: 1fr; gap: 1.4rem; }
       .landing-grid { padding-top: 1.7rem; }
       .hoopoe-stage { min-height: 290px; order: -1; }
