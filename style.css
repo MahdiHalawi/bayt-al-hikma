@@ -118,12 +118,6 @@
       white-space: nowrap;
     }
     .location-list li:hover { background: rgba(217,169,79,.18); }
-    .location-list .location-divider {
-      border-top: 1px solid rgba(217,169,79,.25);
-      margin: .3rem 0;
-      padding: 0;
-      cursor: default;
-    }
     .location-list li.no-country-results {
       cursor: default;
       opacity: .6;
@@ -649,12 +643,12 @@
     .path-card p { color: #4e5971; font-size: .82rem; line-height: 1.55; margin: 0; }
 
     .path-card.locked { cursor: pointer; }
-    .path-card.locked .locked-content { filter: blur(3px); opacity: .55; user-select: none; }
+    .path-card.locked .locked-content { filter: blur(9px); opacity: .4; user-select: none; }
     .path-card.locked .lock-overlay {
       position: absolute; inset: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: .4rem; text-align: center; padding: .5rem;
-      background: rgba(244,233,216,.4);
+      background: rgba(244,233,216,.78);
     }
     .lock-overlay .lock-label {
       font: 700 .68rem "Work Sans", sans-serif;
@@ -896,6 +890,22 @@
       .action-button { width: 100%; }
       .path-grid { grid-template-columns: 1fr; }
       .display-heading { line-height: 1; }
+      /* These headings all have large, fixed pixel font sizes set as
+         inline styles (e.g. 62px), which don't scale down for narrow
+         phone screens at all — leaving text crowding right up against
+         the edge of the frame. !important is needed specifically
+         because inline styles otherwise always beat an external
+         stylesheet rule regardless of selector specificity. Each is
+         scaled to roughly 75% of its original size, proportionally,
+         so the relative size hierarchy between headings is preserved. */
+      #landing-title { font-size: 46px !important; }
+      #questions-title { font-size: 32px !important; }
+      #seeking-title { font-size: 37px !important; }
+      #reveal-title { font-size: 38px !important; }
+      #paths-title { font-size: 33px !important; }
+      #tracker-title { font-size: 40px !important; }
+      #verse-title { font-size: 31px !important; }
+      #upgrade-title, #new-password-title { font-size: 28px !important; }
     }
 
 .path-list-item {

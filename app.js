@@ -405,16 +405,6 @@ const state = {
   completed: new Set(),
 };
 
-// Your original 3 target markets, kept pinned at the top of the list
-// for quick access — the full list below covers everyone else, so
-// nobody visiting from outside these 3 is left without their own
-// country (the original gap this replaced).
-const PRIORITY_COUNTRIES = [
-  { name: "Lebanon", code: "lb" },
-  { name: "Jordan", code: "jo" },
-  { name: "United Arab Emirates", code: "ae" },
-];
-
 // The complete, real ISO 3166-1 country list (249 entries) — generated
 // from actual ISO data, not hand-typed, with a few common-name cleanups
 // applied (e.g. "Palestine" instead of the formal "Palestine, State of",
@@ -479,11 +469,11 @@ const ALL_COUNTRIES = [
   { name: 'Cyprus', code: 'cy' },
   { name: 'Czechia', code: 'cz' },
   { name: 'Côte d\'Ivoire', code: 'ci' },
-  { name: 'DR Congo', code: 'cd' },
   { name: 'Denmark', code: 'dk' },
   { name: 'Djibouti', code: 'dj' },
   { name: 'Dominica', code: 'dm' },
   { name: 'Dominican Republic', code: 'do' },
+  { name: 'DR Congo', code: 'cd' },
   { name: 'Ecuador', code: 'ec' },
   { name: 'Egypt', code: 'eg' },
   { name: 'El Salvador', code: 'sv' },
@@ -671,9 +661,9 @@ const ALL_COUNTRIES = [
   { name: 'Åland Islands', code: 'ax' },
 ];
 
-// Kept for anything that still references the original small list by
-// this name (e.g. finding the currently-selected country's flag code).
-const COUNTRIES = [...PRIORITY_COUNTRIES, ...ALL_COUNTRIES];
+// Kept for anything that still references the full list by this name
+// (e.g. finding the currently-selected country's flag code).
+const COUNTRIES = ALL_COUNTRIES;
 
 // Real flag IMAGES instead of emoji characters. Emoji flags render
 // inconsistently across platforms — Windows in particular commonly
@@ -738,11 +728,6 @@ function renderLocationList(filterText = "") {
   const query = filterText.trim().toLowerCase();
 
   if (!query) {
-    PRIORITY_COUNTRIES.forEach((c) => locationList.appendChild(makeCountryLi(c)));
-    const divider = document.createElement("li");
-    divider.className = "location-divider";
-    divider.setAttribute("aria-hidden", "true");
-    locationList.appendChild(divider);
     ALL_COUNTRIES.forEach((c) => locationList.appendChild(makeCountryLi(c)));
     return;
   }
