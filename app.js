@@ -93,6 +93,7 @@ const translations = {
     cookie_learn_more: "Learn more",
     cookie_accept: "Got it",
     premium_celebration_text: "Welcome to Premium",
+    how_it_works_label: "How it works",
     how_it_works_1_title: "Tell the hoopoe what you want to learn",
     how_it_works_1_desc: "Type any real goal — the more specific, the better.",
     how_it_works_2_title: "Get a real path, not a random list",
@@ -203,6 +204,7 @@ const translations = {
     cookie_learn_more: "اعرف المزيد",
     cookie_accept: "حسناً",
     premium_celebration_text: "أهلاً بك في بريميوم",
+    how_it_works_label: "كيف يعمل",
     how_it_works_1_title: "أخبر الهدهد بما تريد أن تتعلمه",
     how_it_works_1_desc: "اكتب أي هدف حقيقي — كلما كان أكثر تحديدًا، كان أفضل.",
     how_it_works_2_title: "احصل على طريق حقيقي، لا قائمة عشوائية",
@@ -313,6 +315,7 @@ const translations = {
     cookie_learn_more: "En savoir plus",
     cookie_accept: "Compris",
     premium_celebration_text: "Bienvenue dans Premium",
+    how_it_works_label: "Comment ça marche",
     how_it_works_1_title: "Dites à la huppe ce que vous voulez apprendre",
     how_it_works_1_desc: "Entrez un objectif réel — plus il est précis, mieux c'est.",
     how_it_works_2_title: "Obtenez un vrai parcours, pas une liste aléatoire",
@@ -1901,6 +1904,42 @@ if (window.lucide) lucide.createIcons();
   } catch (err) {
     console.error("Session restore failed:", err);
   }
+})();
+
+// ---------- how-it-works: open by default, collapsible, remembered ----------
+(function initHowItWorks() {
+  const HOW_IT_WORKS_KEY = "bayt_al_hikma_how_it_works_collapsed";
+  const toggle = document.getElementById("how-it-works-toggle");
+  const content = document.getElementById("how-it-works-content");
+  if (!toggle || !content) return;
+
+  let startCollapsed = false;
+  try {
+    // Genuine first-time visitors (nothing stored yet) always see it
+    // OPEN — that's the whole point, since they're the ones most likely
+    // to be confused. Only someone who has explicitly collapsed it
+    // before sees it start collapsed on a later visit.
+    startCollapsed = localStorage.getItem(HOW_IT_WORKS_KEY) === "yes";
+  } catch (err) {
+    // Storage unavailable — default to open, the safer choice for clarity.
+  }
+
+  function setState(collapsed) {
+    content.classList.toggle("collapsed", collapsed);
+    toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+
+  setState(startCollapsed);
+
+  toggle.addEventListener("click", () => {
+    const isNowCollapsed = !content.classList.contains("collapsed");
+    setState(isNowCollapsed);
+    try {
+      localStorage.setItem(HOW_IT_WORKS_KEY, isNowCollapsed ? "yes" : "no");
+    } catch (err) {
+      // Non-fatal if this fails — just won't be remembered next visit.
+    }
+  });
 })();
 
 // ---------- cookie / local storage consent banner ----------

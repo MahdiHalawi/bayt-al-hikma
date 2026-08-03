@@ -80,7 +80,11 @@
         </form>
         <p id="goal-message" class="inline-message" role="status"></p>
 
-        <div class="how-it-works">
+        <button type="button" id="how-it-works-toggle" class="how-it-works-toggle" aria-expanded="true" aria-controls="how-it-works-content">
+         <span data-i18n="how_it_works_label">How it works</span>
+         <span class="how-it-works-caret" aria-hidden="true">^</span>
+        </button>
+        <div id="how-it-works-content" class="how-it-works">
          <div class="how-it-works-step">
           <span class="how-it-works-number">1</span>
           <div>
