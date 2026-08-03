@@ -11,7 +11,7 @@ window.PADDLE_CLIENT_TOKEN = "test_4d9ba9a79a08c8147793a0da56c";
 window.PADDLE_PRICE_ID = "pri_01kz0rgecs190vx3fwvz37bwd7";
 window.PADDLE_ENVIRONMENT = "sandbox"; // change to "production" when actually going live
 
-if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("test_4d9ba9a79a08c8147793a0da56c")) {
+if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("PASTE_YOUR")) {
   Paddle.Environment.set(window.PADDLE_ENVIRONMENT);
   Paddle.Initialize({
     token: window.PADDLE_CLIENT_TOKEN,
@@ -35,7 +35,7 @@ if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("test_4d9ba9a79a08c814
   // wherever the visitor actually is (auto-detected from their IP by
   // Paddle itself, no location info needs to be passed) and updates our
   // own display to match what they'll genuinely be charged.
-  if (!window.PADDLE_PRICE_ID.includes("pri_01kz0rgecs190vx3fwvz37bwd7")) {
+  if (!window.PADDLE_PRICE_ID.includes("PASTE_YOUR")) {
     Paddle.PricePreview({
       items: [{ priceId: window.PADDLE_PRICE_ID, quantity: 1 }],
     })
