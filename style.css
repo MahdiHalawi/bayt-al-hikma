@@ -621,6 +621,7 @@
       background: rgba(255,252,243,.43);
       min-height: 205px;
       position: relative;
+      overflow: hidden;
     }
 
     .path-index {
