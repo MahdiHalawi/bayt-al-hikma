@@ -644,12 +644,12 @@
     .path-card p { color: #4e5971; font-size: .82rem; line-height: 1.55; margin: 0; }
 
     .path-card.locked { cursor: pointer; }
-    .path-card.locked .locked-content { filter: blur(9px); opacity: .4; user-select: none; }
+    .path-card.locked .locked-content { filter: blur(16px) grayscale(.8); opacity: .25; user-select: none; }
     .path-card.locked .lock-overlay {
       position: absolute; inset: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: .4rem; text-align: center; padding: .5rem;
-      background: rgba(244,233,216,.78);
+      background: rgba(244,233,216,.88);
     }
     .lock-overlay .lock-label {
       font: 700 .68rem "Work Sans", sans-serif;
