@@ -7,11 +7,11 @@
 // "production" (and swap the token for your real LIVE client-side
 // token) only once you've fully tested the sandbox flow end to end,
 // including a real webhook actually marking a test account premium.
-window.PADDLE_CLIENT_TOKEN = "PASTE_YOUR_PADDLE_CLIENT_TOKEN_HERE";
-window.PADDLE_PRICE_ID = "PASTE_YOUR_PADDLE_PRICE_ID_HERE";
+window.PADDLE_CLIENT_TOKEN = "test_4d9ba9a79a08c8147793a0da56c";
+window.PADDLE_PRICE_ID = "pri_01kz0rgecs190vx3fwvz37bwd7";
 window.PADDLE_ENVIRONMENT = "sandbox"; // change to "production" when actually going live
 
-if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("PASTE_YOUR")) {
+if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("test_4d9ba9a79a08c8147793a0da56c")) {
   Paddle.Environment.set(window.PADDLE_ENVIRONMENT);
   Paddle.Initialize({
     token: window.PADDLE_CLIENT_TOKEN,
@@ -35,7 +35,7 @@ if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("PASTE_YOUR")) {
   // wherever the visitor actually is (auto-detected from their IP by
   // Paddle itself, no location info needs to be passed) and updates our
   // own display to match what they'll genuinely be charged.
-  if (!window.PADDLE_PRICE_ID.includes("PASTE_YOUR")) {
+  if (!window.PADDLE_PRICE_ID.includes("pri_01kz0rgecs190vx3fwvz37bwd7")) {
     Paddle.PricePreview({
       items: [{ priceId: window.PADDLE_PRICE_ID, quantity: 1 }],
     })
