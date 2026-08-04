@@ -89,3 +89,35 @@ test("gracefully handles the YouTube API itself returning an error, without thro
   assert.strictEqual(result.usedFallback, true);
   assert.strictEqual(result.items.length, 0);
 });
+
+test("Arabic requests use the Arabic educational suffix, not English text injected into the query", async () => {
+  process.env.YOUTUBE_API_KEY = "fake-key-for-test";
+  delete require.cache[require.resolve("../videoSearchService")];
+  const { searchVideos } = require("../videoSearchService");
+
+  let capturedUrl = null;
+  global.fetch = async (url) => {
+    capturedUrl = url;
+    return { ok: true, json: async () => ({ items: [] }) };
+  };
+
+  await searchVideos({ query: "الفيزياء", contentLanguage: "ar" });
+  assert.ok(capturedUrl.includes(encodeURIComponent("شرح")), "expected the Arabic word for 'explained', not English text");
+  assert.ok(!capturedUrl.includes(encodeURIComponent("explained")), "should NOT contain English 'explained' when Arabic was requested — this was the actual bug");
+});
+
+test("French requests use the French educational suffix", async () => {
+  process.env.YOUTUBE_API_KEY = "fake-key-for-test";
+  delete require.cache[require.resolve("../videoSearchService")];
+  const { searchVideos } = require("../videoSearchService");
+
+  let capturedUrl = null;
+  global.fetch = async (url) => {
+    capturedUrl = url;
+    return { ok: true, json: async () => ({ items: [] }) };
+  };
+
+  await searchVideos({ query: "physique", contentLanguage: "fr" });
+  assert.ok(capturedUrl.includes(encodeURIComponent("expliqué")), "expected the French word for 'explained'");
+  assert.ok(!capturedUrl.includes(encodeURIComponent(" explained")), "should not contain the English suffix when French was requested");
+});

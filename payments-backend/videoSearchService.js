@@ -6,6 +6,15 @@
 
 const YOUTUBE_LANG_CODES = { en: "en", ar: "ar", fr: "fr" };
 
+// The equivalent of "explained" in each supported language — previously
+// this was hardcoded to the English word regardless of the requested
+// language, which meant even an Arabic-language request had English
+// text injected directly into the search query itself. That's a much
+// stronger bias toward English results than relevanceLanguage's soft
+// ranking signal alone, and was the real, primary cause of Arabic/French
+// requests still coming back mostly in English.
+const EDUCATIONAL_SUFFIX = { en: "explained", ar: "شرح", fr: "expliqué" };
+
 // No DOM available server-side, so this is a small manual replacement
 // instead of the browser's textarea-based decode trick used before.
 function decodeHtmlEntities(str) {
@@ -25,10 +34,14 @@ async function searchVideos({ query, contentLanguage }) {
 
   // videoDuration=medium excludes anything under ~4 minutes — filters
   // out YouTube Shorts, which are heavily hashtag-farmed and rarely
-  // represent real educational material. Appending "explained" biases
-  // toward genuine educational content over news/opinion/tool-roundup
-  // videos that merely mention the topic.
-  const educationalQuery = `${query} explained`;
+  // represent real educational material. Appending the equivalent of
+  // "explained" IN THE REQUESTED LANGUAGE biases toward genuine
+  // educational content over news/opinion/tool-roundup videos that
+  // merely mention the topic — using the wrong-language word here would
+  // itself bias results toward that language, which is exactly the bug
+  // this now avoids.
+  const suffix = EDUCATIONAL_SUFFIX[contentLanguage] || EDUCATIONAL_SUFFIX.en;
+  const educationalQuery = `${query} ${suffix}`;
   let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoDuration=medium&maxResults=6&q=${encodeURIComponent(educationalQuery)}&key=${apiKey}`;
   const langCode = YOUTUBE_LANG_CODES[contentLanguage];
   // relevanceLanguage is a soft ranking signal, not a hard filter —
