@@ -299,5 +299,14 @@ if (process.env.SENTRY_DSN) {
   Sentry.setupExpressErrorHandler(app);
 }
 
+// A dedicated, lightweight endpoint specifically for uptime monitoring
+// (UptimeRobot or similar) — checking against a real, intentional
+// endpoint that always returns a clean 200 when the server is healthy,
+// rather than relying on the root path's incidental 404 (no route is
+// defined there), which would cause false "down" alerts.
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Payments service listening on port ${PORT}`));
