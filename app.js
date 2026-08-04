@@ -1414,7 +1414,7 @@ async function buildPathReal(goal, contentType, contentLanguage, level) {
   }
 
   if (contentType === "articles" || contentType === "courses") {
-    const liveContent = await searchContentWithAI(goal, contentType, level || "basics");
+    const liveContent = await searchContentWithAI(goal, contentType, level || "basics", contentLanguage);
     return liveContent && liveContent.length > 0
       ? liveContent
       : filterItems(staticItems, contentType, contentLanguage); // search failed/not configured — fall back to demo data
@@ -1472,7 +1472,7 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
 // same graceful-degrade philosophy as sequenceWithAI: on any failure,
 // return null so buildPathReal falls back to the static demo catalog
 // instead of breaking the experience.
-async function searchContentWithAI(goal, contentType, level) {
+async function searchContentWithAI(goal, contentType, level, contentLanguage) {
   try {
     const { data: sessionData } = await sb.auth.getSession();
     const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
@@ -1487,7 +1487,7 @@ async function searchContentWithAI(goal, contentType, level) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ goal, contentType, level }),
+      body: JSON.stringify({ goal, contentType, level, contentLanguage }),
     });
     if (!res.ok) throw new Error("content search backend not available");
     const result = await res.json();

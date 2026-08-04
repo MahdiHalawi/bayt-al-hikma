@@ -67,3 +67,24 @@ test("parseModelOutput handles clean JSON and markdown-fenced JSON the same as s
   assert.strictEqual(parseModelOutput('[{"title":"x"}]')[0].title, "x");
   assert.strictEqual(parseModelOutput('```json\n[{"title":"x"}]\n```')[0].title, "x");
 });
+
+test("buildContentSearchPrompt includes a real language instruction when a specific language is requested", () => {
+  delete require.cache[require.resolve("../contentSearchService")];
+  const { buildContentSearchPrompt } = require("../contentSearchService");
+  const { system } = buildContentSearchPrompt({ goal: "understand physics", contentType: "articles", level: "new", contentLanguage: "ar" });
+  assert.ok(system.includes("Arabic-language"), "expected an explicit Arabic-language instruction");
+});
+
+test("buildContentSearchPrompt omits the language instruction entirely for 'any'/undefined language", () => {
+  const { buildContentSearchPrompt } = require("../contentSearchService");
+  const { system } = buildContentSearchPrompt({ goal: "understand physics", contentType: "courses", level: "new", contentLanguage: "any" });
+  assert.ok(!system.includes("-language"), "should not mention any specific language when none was requested");
+});
+
+test("buildContentSearchPrompt correctly maps each supported language code to its real name", () => {
+  const { buildContentSearchPrompt } = require("../contentSearchService");
+  const en = buildContentSearchPrompt({ goal: "x", contentType: "articles", level: "new", contentLanguage: "en" });
+  const fr = buildContentSearchPrompt({ goal: "x", contentType: "articles", level: "new", contentLanguage: "fr" });
+  assert.ok(en.system.includes("English-language"));
+  assert.ok(fr.system.includes("French-language"));
+});

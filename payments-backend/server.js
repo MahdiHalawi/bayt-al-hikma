@@ -246,13 +246,13 @@ app.post("/api/search-content", contentSearchLimiter, async (req, res) => {
     return res.status(401).json({ error: authError || "Unauthorized" });
   }
 
-  const { goal, contentType, level } = req.body || {};
+  const { goal, contentType, level, contentLanguage } = req.body || {};
   if (contentType !== "articles" && contentType !== "courses") {
     return res.status(400).json({ error: "'contentType' must be 'articles' or 'courses'" });
   }
 
   try {
-    const result = await searchContent({ goal: goal || "", contentType, level: level || "basics" });
+    const result = await searchContent({ goal: goal || "", contentType, level: level || "basics", contentLanguage });
     res.json(result);
   } catch (err) {
     console.error(err);

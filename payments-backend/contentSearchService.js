@@ -7,15 +7,22 @@
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
-function buildContentSearchPrompt({ goal, contentType, level }) {
+const LANGUAGE_NAMES = { en: "English", ar: "Arabic", fr: "French" };
+
+function buildContentSearchPrompt({ goal, contentType, level, contentLanguage }) {
   const typeLabel = contentType === "articles" ? "articles" : "online courses";
+  const languageName = LANGUAGE_NAMES[contentLanguage];
+
+  const languageInstruction = languageName
+    ? `\nIMPORTANT: the learner specifically wants ${languageName}-language ${typeLabel}. Search specifically for ${languageName}-language results (not just results that happen to mention the topic) — construct your search queries in ${languageName} where that helps, and only include results that are genuinely in ${languageName}.\n`
+    : "";
 
   const system = `You are finding real, currently-available ${typeLabel} on the open web for someone learning about: "${goal}".
 
 Use your web search tool to find genuinely good ${typeLabel} — only ones you actually find through search just now, never ones you recall from memory.
 
 Learner level: ${level}.
-
+${languageInstruction}
 After searching, return ONLY a JSON array (no surrounding text, no markdown fences) of 3 to 6 real results, each shaped exactly like this:
 { "title": "<real title>", "author": "<real publisher, site name, or course provider>", "url": "<the EXACT url from your search results>", "reason": "<one sentence: why this is a good fit>" }
 
@@ -103,8 +110,8 @@ function validateAgainstRealUrls(items, realUrls) {
   return { kept, rejected };
 }
 
-async function searchContent({ goal, contentType, level }) {
-  const prompt = buildContentSearchPrompt({ goal, contentType, level });
+async function searchContent({ goal, contentType, level, contentLanguage }) {
+  const prompt = buildContentSearchPrompt({ goal, contentType, level, contentLanguage });
 
   let apiResponse;
   try {
