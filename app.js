@@ -121,6 +121,7 @@ const translations = {
     reveal_subtitle: "A patient sequence: begin with the door, learn the language of the room, and continue into the deeper chambers.",
     tap_note: "Tap the hoopoe to hear its story",
     freePlan: "Free plan · step 1 of",
+    freePlanTwo: "Free plan · steps 1-2 of",
     premiumPlan: "Premium · full path unlocked",
     lockedLabel: "Locked",
     unlockPrompt: "Unlock with Premium",
@@ -232,6 +233,7 @@ const translations = {
     reveal_subtitle: "تسلسل صبور: ابدأ بالباب، تعلّم لغة الغرفة، ثم تابع إلى الغرف الأعمق.",
     tap_note: "انقر على الهدهد لتسمع قصته",
     freePlan: "الخطة المجانية · الخطوة 1 من",
+    freePlanTwo: "الخطة المجانية · الخطوتان 1-2 من",
     premiumPlan: "بريميوم · الطريق كاملاً مفتوح",
     lockedLabel: "مقفل",
     unlockPrompt: "افتحه مع بريميوم",
@@ -343,6 +345,7 @@ const translations = {
     reveal_subtitle: "Une séquence patiente : commencez par la porte, apprenez le langage de la salle, puis continuez vers les chambres plus profondes.",
     tap_note: "Touchez la huppe pour entendre son histoire",
     freePlan: "Plan gratuit · étape 1 sur",
+    freePlanTwo: "Plan gratuit · étapes 1-2 sur",
     premiumPlan: "Premium · chemin complet débloqué",
     lockedLabel: "Verrouillé",
     unlockPrompt: "Débloquer avec Premium",
@@ -1510,12 +1513,23 @@ function renderPathGrid() {
   grid.innerHTML = "";
   const path = state.currentPath.length ? state.currentPath : buildPath(state.goal);
 
+  // Free users see the first 2 steps unlocked — enough to actually
+  // perceive the AI's real step-to-step progression, not just judge a
+  // single isolated item on faith. But NEVER the entire path, even on
+  // a short 3-item path, so Premium always has something real left to
+  // unlock (paths are never shorter than 3 items by design, but this
+  // stays safe even in a rare edge case where one somehow is).
+  let unlockedCount = Math.min(2, path.length);
+  if (unlockedCount === path.length) unlockedCount = Math.max(0, path.length - 1);
+
   document.getElementById("plan-badge").textContent = state.isPremium
     ? t("premiumPlan")
+    : unlockedCount > 1
+    ? `${t("freePlanTwo")} ${path.length}`
     : `${t("freePlan")} ${path.length}`;
 
   path.forEach((book, i) => {
-    const locked = !state.isPremium && i > 0;
+    const locked = !state.isPremium && i >= unlockedCount;
     const card = document.createElement("article");
     card.className = "path-card" + (locked ? " locked" : "");
 
