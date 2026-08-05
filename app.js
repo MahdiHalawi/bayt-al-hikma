@@ -808,6 +808,7 @@ goalForm.addEventListener("submit", (e) => {
   }
   state.goal = goalInput.value.trim();
   goalMessage.textContent = "";
+  trackFunnelEvent("goal_submitted");
   showScreen("questions");
 });
 
@@ -1110,6 +1111,7 @@ emailForm.addEventListener("submit", async (e) => {
   }
 
   state.userId = data.user.id;
+  trackFunnelEvent("signup_completed");
   // Every new real account gets a matching row in our own profiles table.
   try {
     await sb.from("profiles").upsert({ id: data.user.id, is_premium: false });
@@ -1502,6 +1504,7 @@ async function searchContentWithAI(goal, contentType, level, contentLanguage) {
 }
 
 document.getElementById("secret-message-btn").addEventListener("click", () => {
+  trackFunnelEvent("path_generated", { contentType: state.contentType, itemCount: state.currentPath.length });
   renderPathGrid();
   showScreen("reveal");
 });
@@ -1776,6 +1779,7 @@ function celebrateIfNewlyPremium(isPremiumNow) {
     return; // storage unavailable — just skip the celebration, not fatal
   }
   if (isPremiumNow && !wasPremiumBefore) {
+    trackFunnelEvent("upgraded_to_premium");
     celebratePremiumUnlock();
   }
   try {
@@ -1788,6 +1792,21 @@ function celebrateIfNewlyPremium(isPremiumNow) {
 // A brief, tasteful moment when someone genuinely becomes premium —
 // called from both the real Paddle confirmation and the demo fallback,
 // so the experience feels the same regardless of which path granted it.
+// Real funnel tracking — the 5 genuine stages of the actual user
+// journey (goal submitted, signed up, path generated, upgraded), not
+// just raw page views. Defensive against window.umami not existing
+// (script blocked, still loading, or not configured yet) — tracking is
+// a nice-to-have, never something that should be able to break the app.
+function trackFunnelEvent(name, data) {
+  try {
+    if (window.umami && typeof window.umami.track === "function") {
+      window.umami.track(name, data);
+    }
+  } catch (err) {
+    // Never let analytics failures affect the actual user experience.
+  }
+}
+
 function celebratePremiumUnlock() {
   const el = document.getElementById("premium-celebration");
   if (!el) return;
