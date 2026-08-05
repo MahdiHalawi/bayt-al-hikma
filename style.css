@@ -1071,3 +1071,19 @@
   font-size: .8rem;
   line-height: 1.5;
 }
+
+.text-input {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--paper);
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(217,169,79,.4);
+  padding: .75rem .9rem;
+  font: 500 .85rem "Work Sans", sans-serif;
+  margin-top: .6rem;
+}
+.text-input::placeholder { color: rgba(244,233,216,.5); }
+.text-input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}

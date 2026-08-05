@@ -29,7 +29,19 @@ const FORMAT_NOTES = {
   either: "The learner has no strong preference between physical and digital formats.",
 };
 
-function buildPrompt({ goal, level, format, timeCommitment, items, previouslyCompleted }) {
+// Shared by both prompts below. When someone picks "Something else" and
+// describes their own starting point in their own words (since the 3
+// fixed buckets don't always genuinely fit — e.g. strong in a related
+// field, but new to this specific topic), that description becomes the
+// actual instruction, instead of guessing from a generic bucket.
+function resolveLevelInstruction(level, levelOther) {
+  if (level === "other" && levelOther && levelOther.trim()) {
+    return `The learner describes their own starting point in their own words, rather than picking one of the standard levels: "${levelOther.trim()}". Use this description to judge a genuinely appropriate starting point and build a real progression from there — do not default to a generic beginner or expert assumption.`;
+  }
+  return LEVEL_INSTRUCTIONS[level] || LEVEL_INSTRUCTIONS.basics;
+}
+
+function buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted }) {
   const itemList = items
     .map((it, i) => `${i}. id: "${it.id}" | type: ${it.type} | "${it.title}" by ${it.author}`)
     .join("\n");
@@ -51,7 +63,7 @@ You must choose ids ONLY from the list below. Never invent a resource, id, title
 AVAILABLE RESOURCES:
 ${itemList}
 ${completedSection}
-${LEVEL_INSTRUCTIONS[level] || LEVEL_INSTRUCTIONS.basics}
+${resolveLevelInstruction(level, levelOther)}
 ${TIME_INSTRUCTIONS[timeCommitment] || TIME_INSTRUCTIONS.moderate}
 ${FORMAT_NOTES[format] || FORMAT_NOTES.either}
 
@@ -81,7 +93,7 @@ function parseModelOutput(rawText) {
 // serves someone working toward the stated goal — not just whether it
 // mentions the topic. Weak fits can be swapped for a better item from
 // the remaining pool, or dropped entirely.
-function buildCritiquePrompt({ goal, level, format, timeCommitment, chosenPath, remainingItems }) {
+function buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath, remainingItems }) {
   const chosenList = chosenPath
     .map((it, i) => `${i + 1}. id: "${it.id}" | "${it.title}" by ${it.author} | current reason: ${it.reason}`)
     .join("\n");
@@ -92,7 +104,7 @@ function buildCritiquePrompt({ goal, level, format, timeCommitment, chosenPath, 
   const system = `You are reviewing a proposed learning path for GENUINE FIT, not just topical relevance.
 
 GOAL: "${goal}"
-LEARNER LEVEL: ${level}
+${resolveLevelInstruction(level, levelOther)}
 ${TIME_INSTRUCTIONS[timeCommitment] || TIME_INSTRUCTIONS.moderate}
 ${FORMAT_NOTES[format] || FORMAT_NOTES.either}
 
@@ -166,12 +178,12 @@ async function callModel({ system, user }) {
 // items: the real, already-fetched books/videos from the frontend.
 // Returns the same fallback-safe shape as curriculum-ai: never throws,
 // always returns SOMETHING usable, even if the model call fails.
-async function sequencePath({ goal, level, format, timeCommitment, items, previouslyCompleted = [] }) {
+async function sequencePath({ goal, level, levelOther = "", format, timeCommitment, items, previouslyCompleted = [] }) {
   if (!items || items.length === 0) {
     return { path: [], rejected: [], usedFallback: true, error: "No items provided to sequence" };
   }
 
-  const prompt = buildPrompt({ goal, level, format, timeCommitment, items, previouslyCompleted });
+  const prompt = buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted });
 
   let rawText;
   try {
@@ -205,7 +217,7 @@ async function sequencePath({ goal, level, format, timeCommitment, items, previo
   try {
     const chosenIds = new Set(path.map((p) => p.id));
     const remainingItems = items.filter((it) => !chosenIds.has(it.id));
-    const critiquePrompt = buildCritiquePrompt({ goal, level, format, timeCommitment, chosenPath: path, remainingItems });
+    const critiquePrompt = buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath: path, remainingItems });
     const critiqueRawText = await callModel(critiquePrompt);
     const critiqueRawItems = parseModelOutput(critiqueRawText);
     const { path: refinedPath, rejected: critiqueRejected } = validateAndMerge(critiqueRawItems, items);
@@ -223,4 +235,4 @@ async function sequencePath({ goal, level, format, timeCommitment, items, previo
   return { path, rejected, usedFallback: false };
 }
 
-module.exports = { buildPrompt, buildCritiquePrompt, parseModelOutput, validateAndMerge, sequencePath };
+module.exports = { buildPrompt, buildCritiquePrompt, resolveLevelInstruction, parseModelOutput, validateAndMerge, sequencePath };

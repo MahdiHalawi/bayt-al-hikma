@@ -67,6 +67,9 @@ const translations = {
     level_new: "New to this",
     level_basics: "I know some basics",
     level_wellread: "Already well-read",
+    level_other: "Something else",
+    level_other_label: "Describe your starting point",
+    level_other_placeholder: "e.g. I know statistics well but I'm new to this specific topic",
     format_label: "How do you prefer to read?",
     format_physical: "Physical books",
     format_digital: "Digital reading",
@@ -179,6 +182,9 @@ const translations = {
     level_new: "جديد على هذا",
     level_basics: "أعرف بعض الأساسيات",
     level_wellread: "قارئ متمرس بالفعل",
+    level_other: "شيء آخر",
+    level_other_label: "صف نقطة انطلاقك",
+    level_other_placeholder: "مثال: أعرف الإحصاء جيدًا لكنني جديد على هذا الموضوع تحديدًا",
     format_label: "كيف تفضل القراءة؟",
     format_physical: "كتب ورقية",
     format_digital: "قراءة رقمية",
@@ -291,6 +297,9 @@ const translations = {
     level_new: "Nouveau dans ce domaine",
     level_basics: "Je connais les bases",
     level_wellread: "Déjà bien lu",
+    level_other: "Autre chose",
+    level_other_label: "Décrivez votre point de départ",
+    level_other_placeholder: "ex. Je connais bien les statistiques mais je découvre ce sujet précis",
     format_label: "Comment préférez-vous lire ?",
     format_physical: "Livres papier",
     format_digital: "Lecture numérique",
@@ -417,6 +426,7 @@ function applyLang(lang) {
 const state = {
   goal: "",
   level: "basics",
+  levelOther: "",
   format: "physical",
   contentType: "books",
   contentLanguage: "any",
@@ -1034,7 +1044,24 @@ document.querySelectorAll(".option-chip").forEach((btn) => {
       const showFormat = btn.dataset.value === "books" || btn.dataset.value === "mix";
       document.getElementById("book-format-group").classList.toggle("hidden", !showFormat);
     }
+
+    // "Something else" reveals a free-text field for describing their
+    // own starting point in their own words — for when none of the 3
+    // fixed level buckets genuinely fit (e.g. strong in a related
+    // field, but new to this specific topic).
+    if (group === "level") {
+      const showOther = btn.dataset.value === "other";
+      document.getElementById("level-other-group").classList.toggle("hidden", !showOther);
+      if (!showOther) {
+        document.getElementById("level-other-input").value = "";
+        state.levelOther = "";
+      }
+    }
   });
+});
+
+document.getElementById("level-other-input").addEventListener("input", (e) => {
+  state.levelOther = e.target.value;
 });
 
 document.getElementById("continue-button").addEventListener("click", () => {
@@ -1162,7 +1189,7 @@ function startSeekingDelay(previouslyCompleted = []) {
     // items (never inventing new ones). If the backend isn't running,
     // this gracefully falls back to the unsequenced live results rather
     // than breaking anything.
-    state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted);
+    state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted, state.levelOther);
     state.currentPathId = null;
     state.completed = new Set();
 
@@ -1435,7 +1462,7 @@ async function buildPathReal(goal, contentType, contentLanguage, level) {
 // everywhere else in this app (payment checkout, etc.): try the real
 // backend first, and gracefully degrade — here, to the plain
 // unsequenced live results — if it isn't reachable.
-async function sequenceWithAI(goal, level, format, timeCommitment, items, previouslyCompleted = []) {
+async function sequenceWithAI(goal, level, format, timeCommitment, items, previouslyCompleted = [], levelOther = "") {
   if (!items || items.length === 0) return items;
   try {
     // The backend now requires proof of a real, currently logged-in
@@ -1459,7 +1486,7 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted }),
+      body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted, levelOther }),
     });
     if (!res.ok) throw new Error("sequencing backend not available");
     const result = await res.json();

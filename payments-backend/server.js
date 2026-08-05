@@ -203,7 +203,7 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
     return res.status(401).json({ error: authError || "Unauthorized" });
   }
 
-  const { goal, level, format, timeCommitment, items, previouslyCompleted } = req.body || {};
+  const { goal, level, format, timeCommitment, items, previouslyCompleted, levelOther } = req.body || {};
 
   if (!Array.isArray(items)) {
     return res.status(400).json({ error: "'items' must be an array of the already-fetched books/videos" });
@@ -213,6 +213,7 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
     const result = await sequencePath({
       goal: goal || "",
       level: level || "basics",
+      levelOther: typeof levelOther === "string" ? levelOther : "",
       format: format || "either",
       timeCommitment: timeCommitment || "moderate",
       items,
