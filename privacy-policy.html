@@ -16,82 +16,95 @@
   th, td { border:1px solid #8C6B24; padding:.55rem .7rem; text-align:left; }
   th { background:#EADFC7; }
   a { color:#8C6B24; }
-  .placeholder { background:#fff3cd; padding:.1rem .3rem; border-radius:3px; }
   .back-link { display:inline-block; margin-top:2.5rem; font-size:.9rem; }
 </style>
 </head>
 <body>
 <div class="page">
 <h1>Privacy Policy — Bayt Al-Hikma</h1>
-<p class="updated">Last updated: <span class="placeholder">[DATE]</span></p>
+<p class="updated">Last updated: August 12, 2026</p>
 
-<div class="disclaimer">This is a starting draft based on how Bayt Al-Hikma actually works today. It is not legal advice. A lawyer should review this before it's relied upon publicly, especially given real payments and personal data are involved across multiple countries.</div>
+<div class="disclaimer">This policy is based on Bayt Al-Hikma's actual data practices and was generated with the assistance of a dedicated privacy-compliance platform. It does not constitute a substitute for independent legal advice specific to your jurisdiction.</div>
 
 <h2>1. Who this policy covers</h2>
-<p>This policy explains what information Bayt Al-Hikma ("we," "us," "the site") collects when you use the site, why we collect it, and what your rights are. By creating an account or using the site, you agree to this policy.</p>
+<p>This policy explains what information Bayt Al-Hikma ("we," "us," "the site") collects when you use the site, why we collect it, and what your rights are. By creating an account or using the site, you agree to this policy. The Data Controller responsible for this Application is Mahdi Halawi, reachable at mahdihalawi430@gmail.com.</p>
 
 <h2>2. Information we collect</h2>
 <p><strong>Information you provide directly:</strong></p>
 <ul>
 <li>Your email address and password, when you create an account (your password is never stored in readable form — it's securely hashed by our authentication provider, Supabase).</li>
-<li>Your stated learning goals, level, format preference, language preference, and time-commitment preference, entered when building a reading/learning path.</li>
+<li>Your stated learning goals, level, format preference, language preference, and time-commitment preference, entered when building a learning path.</li>
+<li>The text of your learning goal itself, which is sent to Anthropic's Claude API to generate your personalized path.</li>
 </ul>
 <p><strong>Information generated as you use the site:</strong></p>
 <ul>
-<li>The reading paths you create (your goal, the books/videos/articles selected for you, and their sequence).</li>
-<li>Your progress on each path (which items you've marked as read/watched).</li>
-<li>Your subscription status (free or premium).</li>
+<li>The learning paths you create (your goal, the books/videos/articles/courses selected for you, and their sequence).</li>
+<li>Your progress on each path (which items you've marked as complete).</li>
+<li>Your subscription status (free or premium) and, if you subscribe, billing information handled by our payment provider.</li>
 </ul>
 <p><strong>Information we do NOT collect:</strong></p>
 <ul>
-<li>We do not directly collect or store your payment card details. Payment processing is handled entirely by our payment provider (currently Stripe, or an alternative depending on your country), who has their own privacy policy governing that information.</li>
+<li>We do not directly collect or store your full payment card details. Payment processing is handled entirely by our payment provider, Paddle, who has its own privacy policy governing that information.</li>
 </ul>
 
 <h2>3. How we use your information</h2>
 <ul>
 <li>To create and maintain your account.</li>
-<li>To generate your personalized reading/learning paths.</li>
+<li>To generate your personalized, sequenced learning paths using AI.</li>
 <li>To track and display your progress.</li>
-<li>To process payments and manage your subscription (via our payment provider).</li>
+<li>To process payments and manage your Premium subscription (via our payment provider, Paddle).</li>
 <li>To communicate with you about your account (e.g., password reset emails).</li>
+<li>To monitor and fix technical errors, and understand general site usage.</li>
 </ul>
 
 <h2>4. Third parties we share information with</h2>
 <p>To function, Bayt Al-Hikma sends certain information to the following third-party services:</p>
 <table>
-<tr><th>Service</th><th>What's sent</th><th>Why</th></tr>
-<tr><td>Supabase</td><td>Your email, password (hashed), and all account/path/progress data</td><td>Authentication and database hosting</td></tr>
-<tr><td>Anthropic (Claude API)</td><td>Your stated learning goal, and the list of real books/videos being considered for your path</td><td>To select and sequence your personalized learning path</td></tr>
-<tr><td>Open Library</td><td>Your search terms (derived from your goal)</td><td>To find real, relevant books</td></tr>
-<tr><td>YouTube (Google)</td><td>Your search terms (derived from your goal)</td><td>To find real, relevant videos</td></tr>
-<tr><td>Payment provider (Stripe or alternative)</td><td>Your payment details, handled directly by them</td><td>To process your subscription payment</td></tr>
+<tr><th>Service</th><th>What's sent</th><th>Why</th><th>Where processed</th></tr>
+<tr><td>Supabase</td><td>Your email, password (hashed), and all account/path/progress data</td><td>Authentication and database hosting</td><td>South Asia (Mumbai)</td></tr>
+<tr><td>Anthropic (Claude API)</td><td>Your stated learning goal</td><td>To select and sequence your personalized learning path</td><td>United States</td></tr>
+<tr><td>Open Library</td><td>Search terms derived from your goal</td><td>To find real, relevant books</td><td>United States</td></tr>
+<tr><td>YouTube Data API (Google)</td><td>Search terms derived from your goal</td><td>To find real, relevant videos</td><td>Ireland</td></tr>
+<tr><td>Google Fonts</td><td>IP address (via font loading)</td><td>To display the site's typefaces</td><td>Ireland</td></tr>
+<tr><td>Paddle</td><td>Email address, billing details, payment information</td><td>To process your Premium subscription payment, as Merchant of Record</td><td>United Kingdom</td></tr>
+<tr><td>Sentry</td><td>Technical/error data</td><td>To detect and diagnose technical errors</td><td>United States</td></tr>
+<tr><td>Umami</td><td>None (no personal data, no cookies)</td><td>Privacy-focused site usage analytics</td><td>—</td></tr>
 </table>
 <p>We do not sell your personal information to anyone.</p>
 
 <h2>5. Cookies and local storage</h2>
-<p>We use your browser's local storage (not tracking cookies) to keep you logged in between visits, via our authentication provider. This is necessary for the site to function and isn't used for advertising or tracking you across other websites.</p>
+<p>We use your browser's local storage (not tracking cookies) to keep you logged in between visits, via our authentication provider. This is necessary for the site to function and isn't used for advertising or tracking you across other websites. Our analytics provider, Umami, does not use cookies at all.</p>
 
 <h2>6. International data transfers</h2>
-<p>Because we use services like Supabase, Anthropic, and Google, your information may be processed on servers located outside your own country. By using the site, you consent to this transfer.</p>
+<p>Because we use services located in different countries (including India, the United States, Ireland, and the United Kingdom, as listed above), your information may be processed on servers located outside your own country. By using the site, you consent to this transfer.</p>
 
 <h2>7. Your rights</h2>
-<p>You can request a copy of the personal data we hold about you, request correction of inaccurate data, or request deletion of your account and associated data.</p>
-<p><strong>Currently, account deletion is handled manually</strong> — email us at <span class="placeholder">[CONTACT EMAIL]</span> to request it, since a self-service deletion option isn't built into the site yet.</p>
+<p>You have the right to access, correct, delete, or receive a portable copy of the personal data we hold about you, and to object to or restrict certain processing. To exercise any of these rights:</p>
+<ul>
+<li><a href="mailto:mahdihalawi430@gmail.com?subject=Right%20of%20access">Ask us to know and access the information we hold on you</a></li>
+<li><a href="mailto:mahdihalawi430@gmail.com?subject=Right%20to%20rectification">Ask us to correct information we hold on you</a></li>
+<li><a href="mailto:mahdihalawi430@gmail.com?subject=Right%20to%20be%20forgotten">Ask us to delete the information we hold on you</a></li>
+<li><a href="mailto:mahdihalawi430@gmail.com?subject=Right%20to%20data%20portability">Ask to port your data to another service</a></li>
+</ul>
+<p><strong>Account deletion is currently handled manually</strong> — email us using the link above, since a self-service deletion option isn't built into the site yet. We will respond within one month.</p>
 
 <h2>8. Data retention</h2>
 <p>We keep your account information for as long as your account is active. If you request deletion, we will remove your personal data within a reasonable time, except where we're required to keep certain records (e.g., payment records) for legal or accounting reasons.</p>
 
 <h2>9. Children's privacy</h2>
-<p>Bayt Al-Hikma is not directed at children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, contact us at <span class="placeholder">[CONTACT EMAIL]</span> and we will delete it.</p>
+<p>Bayt Al-Hikma is not directed at children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, contact us at mahdihalawi430@gmail.com and we will delete it.</p>
 
 <h2>10. Security</h2>
 <p>We take reasonable measures to protect your information (e.g., encrypted password storage, HTTPS). However, no online service can guarantee absolute security, and we cannot promise your information will never be accessed by an unauthorized party.</p>
 
 <h2>11. Changes to this policy</h2>
-<p>We may update this policy from time to time. If we make significant changes, we'll make a reasonable effort to notify you (e.g., a notice on the site).</p>
+<p>We may update this policy from time to time. If we make significant changes, we'll make a reasonable effort to notify you (e.g., a notice on the site). Should the changes affect processing based on your consent, we will collect new consent from you where required.</p>
 
-<h2>12. Contact us</h2>
-<p>Questions about this policy? Email us at <span class="placeholder">[CONTACT EMAIL]</span>.</p>
+<h2>12. In case of issues</h2>
+<p>While we strive to create a positive experience, we understand issues may occasionally arise. If this is the case, please contact us at mahdihalawi430@gmail.com.</p>
+
+<h2>13. Contact us</h2>
+<p>Questions about this policy? Email us at mahdihalawi430@gmail.com.</p>
 
 <a class="back-link" href="javascript:window.close()">← Close this window</a>
 </div>
