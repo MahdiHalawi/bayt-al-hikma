@@ -1130,25 +1130,71 @@ emailForm.addEventListener("submit", async (e) => {
     return;
   }
   if (!data.session) {
-    // Happens if your Supabase project still requires email confirmation.
-    // For easier testing, turn this off in: Authentication → Providers →
-    // Email → "Confirm email". Otherwise, tell the user to check their inbox.
-    msg.textContent = "Check your email to confirm your account, then log in from the landing page.";
+    // Happens when your Supabase project requires email confirmation —
+    // now the real, live behavior for real users. The confirmation link
+    // is very often opened on a DIFFERENT device than the one used to
+    // sign up (checking email on a phone, while the signup itself
+    // happened on a laptop) — that other device has no way to know
+    // confirmation happened unless this one actively checks. So rather
+    // than just displaying a static message and leaving this screen
+    // permanently stuck, poll for confirmation and continue
+    // automatically the moment it's detected, from any device.
+    msg.textContent = "Check your email to confirm your account. This page will continue automatically once you do — no need to come back and refresh.";
+
+    let attempts = 0;
+    const maxAttempts = 100; // ~100 * 3s = 5 minutes of polling
+    const pollInterval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(pollInterval);
+        msg.textContent = "Still waiting on that confirmation — once you've clicked the link in your email, you can also just log in directly from the landing page.";
+        return;
+      }
+
+      // Attempting a real sign-in with the same credentials just used to
+      // sign up is a reliable, direct way to detect confirmation — an
+      // unconfirmed account is blocked from signing in at all, so
+      // success here can only mean confirmation genuinely happened,
+      // regardless of which device it happened on.
+      try {
+        const { data: signInData, error: signInError } = await sb.auth.signInWithPassword({ email, password });
+        if (signInData && signInData.session) {
+          clearInterval(pollInterval);
+          msg.textContent = "";
+          await continueAfterConfirmedSignup(signInData.user.id);
+        }
+        // Any error here (most commonly "Email not confirmed") just
+        // means keep waiting — not a real failure worth surfacing.
+      } catch (err) {
+        // A genuine network hiccup on one poll shouldn't kill the whole
+        // loop — just try again on the next interval.
+      }
+    }, 3000);
+
     return;
   }
 
-  state.userId = data.user.id;
+  await continueAfterConfirmedSignup(data.user.id);
+});
+
+// Shared by both the immediate-confirm path (Confirm Email is off, or
+// the session comes back right away) and the polling path above (Confirm
+// Email is on, and confirmation was just detected from any device) — the
+// exact same next steps either way, so there's only one real place this
+// logic can drift out of sync with itself.
+async function continueAfterConfirmedSignup(userId) {
+  state.userId = userId;
   trackFunnelEvent("signup_completed");
   // Every new real account gets a matching row in our own profiles table.
   try {
-    await sb.from("profiles").upsert({ id: data.user.id, is_premium: false });
+    await sb.from("profiles").upsert({ id: userId, is_premium: false });
   } catch (err) {
     console.error("Could not create profile row:", err);
   }
 
   emailForm.classList.add("hidden");
   startSeekingDelay();
-});
+}
 
 // Shared by both "just signed up" and "already logged in, starting
 // another path" — the simulated AI delay, then building AND saving the
