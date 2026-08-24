@@ -85,6 +85,7 @@ const translations = {
     lang_english: "English",
     lang_arabic: "Arabic",
     lang_french: "French",
+    arabic_language_note: "Arabic content is still growing here — if we can't find enough strong Arabic sources for your topic, we may include a few in other languages so your path stays complete.",
     time_label: "How much time can you give it?",
     time_quick: "Quick pieces",
     time_moderate: "A steady pace",
@@ -200,6 +201,7 @@ const translations = {
     lang_english: "الإنجليزية",
     lang_arabic: "العربية",
     lang_french: "الفرنسية",
+    arabic_language_note: "المحتوى العربي لا يزال ينمو هنا — إذا لم نجد ما يكفي من مصادر عربية قوية لموضوعك، فقد نضيف بعض المصادر بلغات أخرى للحفاظ على اكتمال مسارك.",
     time_label: "كم من الوقت يمكنك تخصيصه؟",
     time_quick: "قطع سريعة",
     time_moderate: "وتيرة ثابتة",
@@ -315,6 +317,7 @@ const translations = {
     lang_english: "Anglais",
     lang_arabic: "Arabe",
     lang_french: "Français",
+    arabic_language_note: "Le contenu en arabe est encore en développement — si nous ne trouvons pas assez de sources arabes solides pour votre sujet, nous pourrions inclure quelques sources dans d'autres langues pour que votre parcours reste complet.",
     time_label: "Combien de temps pouvez-vous y consacrer ?",
     time_quick: "Des pièces rapides",
     time_moderate: "Un rythme régulier",
@@ -1056,6 +1059,15 @@ document.querySelectorAll(".option-chip").forEach((btn) => {
         document.getElementById("level-other-input").value = "";
         state.levelOther = "";
       }
+    }
+
+    // Honest expectation-setting: Arabic-language source coverage is
+    // genuinely thinner right now than English's, so let people know
+    // upfront rather than have them quietly wonder why an English item
+    // showed up despite selecting Arabic.
+    if (group === "contentLanguage") {
+      const showArabicNote = btn.dataset.value === "ar";
+      document.getElementById("arabic-language-note").classList.toggle("hidden", !showArabicNote);
     }
   });
 });

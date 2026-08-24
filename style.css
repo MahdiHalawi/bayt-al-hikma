@@ -442,6 +442,13 @@
 
     .paper-eyebrow { color: var(--bronze-on-paper); }
     .question-intro { color: #45506c; line-height: 1.65; margin: .75rem 0 1.7rem; }
+    .field-note {
+      color: #45506c;
+      font-size: .82rem;
+      line-height: 1.5;
+      margin-top: .6rem;
+      font-style: italic;
+    }
 
     .question-group { margin: 1.45rem 0; }
     .question-label {
