@@ -436,6 +436,7 @@ const state = {
   goal: "",
   level: "basics",
   levelOther: "",
+  premiumFirstFlow: false,
   format: "physical",
   contentType: "books",
   contentLanguage: "any",
@@ -1211,6 +1212,15 @@ async function continueAfterConfirmedSignup(userId) {
   }
 
   emailForm.classList.add("hidden");
+
+  if (state.premiumFirstFlow) {
+    // This account was created specifically to buy Premium, before any
+    // goal exists yet — so there's no path to generate. Go straight to
+    // checkout instead of the normal seeking/reveal sequence.
+    upgradeOverlay.classList.remove("hidden");
+    return;
+  }
+
   startSeekingDelay();
 }
 
@@ -1935,10 +1945,19 @@ async function handlePaddleCheckoutCompleted() {
         state.isPremium = true;
         btn.disabled = false;
         upgradeOverlay.classList.add("hidden");
-        renderPathGrid();
-        renderTracker();
         status.textContent = "";
         celebrateIfNewlyPremium(state.isPremium);
+
+        if (state.premiumFirstFlow) {
+          // They paid before ever picking a goal — now send them to
+          // actually do that, already Premium from the very start.
+          state.premiumFirstFlow = false;
+          showScreen("landing");
+          return;
+        }
+
+        renderPathGrid();
+        renderTracker();
         return;
       }
     } catch (err) {
@@ -2009,7 +2028,23 @@ if (window.lucide) lucide.createIcons();
     }
 
     const session = data.session;
-    if (!session) return; // nobody logged in — a normal fresh visit, stay on the landing page
+    if (!session) {
+      // Nobody logged in. Normally that just means a fresh visit — stay
+      // on the landing page. But someone arriving from the standalone
+      // pricing page who already clicked "Get Premium" has a different
+      // intent: they've decided to pay before ever picking a goal, so
+      // send them straight to account creation instead of making them
+      // fake their way through a goal first.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("premium") === "1") {
+        state.premiumFirstFlow = true;
+        showScreen("seeking");
+        document.getElementById("searching-dots").classList.add("hidden");
+        document.getElementById("secret-message-btn").classList.add("hidden");
+        document.getElementById("email-form").classList.remove("hidden");
+      }
+      return;
+    }
 
     state.userId = session.user.id;
 
