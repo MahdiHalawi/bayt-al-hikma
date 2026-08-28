@@ -3,13 +3,12 @@
 // security comes entirely from the webhook-only premium-marking on the
 // backend, never from anything client-side.
 //
-// IMPORTANT: this is set to "sandbox" right now — switch environment to
-// "production" (and swap the token for your real LIVE client-side
-// token) only once you've fully tested the sandbox flow end to end,
-// including a real webhook actually marking a test account premium.
-window.PADDLE_CLIENT_TOKEN = "test_4d9ba9a79a08c8147793a0da56c";
-window.PADDLE_PRICE_ID = "pri_01kz0rgecs190vx3fwvz37bwd7";
-window.PADDLE_ENVIRONMENT = "sandbox"; // change to "production" when actually going live
+// LIVE MODE — real payments, real customers. Switched from Sandbox on
+// the date this was updated, after the full Sandbox flow was tested
+// end to end, including a real webhook marking a test account premium.
+window.PADDLE_CLIENT_TOKEN = "live_e21a85860245d61249a5a5eeab2";
+window.PADDLE_PRICE_ID = "pri_01m14bdw13p145atad1x4ksg54";
+window.PADDLE_ENVIRONMENT = "production";
 
 if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("PASTE_YOUR")) {
   Paddle.Environment.set(window.PADDLE_ENVIRONMENT);
