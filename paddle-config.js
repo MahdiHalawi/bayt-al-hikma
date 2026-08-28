@@ -24,6 +24,16 @@ if (window.Paddle && !window.PADDLE_CLIENT_TOKEN.includes("PASTE_YOUR")) {
       if (data.name === "checkout.completed" && typeof handlePaddleCheckoutCompleted === "function") {
         handlePaddleCheckoutCompleted();
       }
+      // Fires when checkout closes for ANY reason, including the
+      // customer cancelling without paying — distinct from
+      // checkout.completed above. Most of the time this needs no
+      // special handling (closing just reveals whatever real screen was
+      // already underneath), but see handlePaddleCheckoutClosed in
+      // app.js for the one real exception: the premium-first flow,
+      // where there's nothing real underneath to fall back to.
+      if (data.name === "checkout.closed" && typeof handlePaddleCheckoutClosed === "function") {
+        handlePaddleCheckoutClosed();
+      }
     },
   });
 

@@ -1858,10 +1858,26 @@ function openUpgrade() {
   document.getElementById("checkout-status").textContent = "";
   upgradeOverlay.classList.remove("hidden");
 }
-document.getElementById("close-upgrade-button").addEventListener("click", () => {
+
+// Handles checkout being closed WITHOUT completing — either Paddle's own
+// checkout.closed event (cancelling inside the payment form itself), or
+// our own "Not now" / click-outside close. In the normal flow this needs
+// nothing extra: closing just reveals the real screen that was already
+// underneath (paths, tracker, reveal). But the premium-first flow (from
+// the standalone pricing page) has NOTHING real underneath at this
+// point — no goal, no path, nothing — so leaving it as-is is exactly
+// the "stuck on an empty page forever" bug. Send them back to landing
+// instead, same as if they'd never started.
+function handlePaddleCheckoutClosed() {
   upgradeOverlay.classList.add("hidden");
-});
-upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) upgradeOverlay.classList.add("hidden"); });
+  if (state.premiumFirstFlow) {
+    state.premiumFirstFlow = false;
+    showScreen("landing");
+  }
+}
+
+document.getElementById("close-upgrade-button").addEventListener("click", handlePaddleCheckoutClosed);
+upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) handlePaddleCheckoutClosed(); });
 
 // Remembers the last known premium status in localStorage — this lets
 // us reliably detect "you just became premium" from ANY place that
