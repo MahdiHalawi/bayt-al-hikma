@@ -1019,6 +1019,9 @@ function renderPathsList(paths) {
 
   // Free accounts only ever get one path — once they have it, the
   // "begin another path" action here becomes the upgrade prompt instead.
+  // Same underlying rule as hasReachedFreePathLimit() above, just using
+  // `paths` already fetched for rendering the list itself, rather than
+  // a second, redundant query for a count already available for free.
   const startBtn = document.getElementById("start-new-path-button");
   startBtn.textContent = !state.isPremium && paths.length >= 1 ? t("newPathFree") : t("newPathPremium");
   startBtn.onclick = () => {
@@ -1083,21 +1086,57 @@ document.getElementById("level-other-input").addEventListener("input", (e) => {
   state.levelOther = e.target.value;
 });
 
-document.getElementById("continue-button").addEventListener("click", () => {
-  showScreen("seeking");
-  document.getElementById("seeking-status").textContent = "";
-  document.getElementById("searching-dots").classList.add("hidden");
-  document.getElementById("secret-message-btn").classList.add("hidden");
+// The single, shared definition of the free-tier path limit — used
+// everywhere this needs checking, so there's exactly one place the
+// actual rule lives, not several copies that could quietly drift out
+// of sync with each other over time.
+async function hasReachedFreePathLimit(userId) {
+  const { count } = await sb.from("paths").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  return count >= 1;
+}
+
+document.getElementById("continue-button").addEventListener("click", async () => {
   document.getElementById("signup-message").textContent = "";
   document.getElementById("signup-goto-login-btn").classList.add("hidden");
 
   if (state.userId) {
+    // Already logged in. Before proceeding, check the SAME free-tier
+    // limit the paths-list screen enforces — this is the gap that let
+    // a free user rack up multiple paths: every route back to this
+    // landing screen (browser back button, a fresh visit while already
+    // logged in, and others) used to skip this check entirely, since it
+    // previously only lived on one specific button elsewhere. A fresh
+    // query here (rather than trusting a possibly-stale cached count)
+    // keeps this correct regardless of how they arrived. The real,
+    // authoritative enforcement lives on the backend now too — this is
+    // just for a fast, friendly response instead of a round-trip error.
+    if (!state.isPremium) {
+      try {
+        if (await hasReachedFreePathLimit(state.userId)) {
+          openUpgrade();
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not check existing path count:", err);
+        // Don't block a legitimate user over an unrelated hiccup — the
+        // backend check is the real, authoritative backstop either way.
+      }
+    }
+
+    showScreen("seeking");
+    document.getElementById("seeking-status").textContent = "";
+    document.getElementById("searching-dots").classList.add("hidden");
+    document.getElementById("secret-message-btn").classList.add("hidden");
     // Already logged in — never show the signup form again. Showing it
     // here was the original bug: re-entering existing credentials just
     // gets rejected by Supabase since that account already exists.
     document.getElementById("email-form").classList.add("hidden");
     startSeekingDelay();
   } else {
+    showScreen("seeking");
+    document.getElementById("seeking-status").textContent = "";
+    document.getElementById("searching-dots").classList.add("hidden");
+    document.getElementById("secret-message-btn").classList.add("hidden");
     document.getElementById("email-form").classList.remove("hidden");
   }
 });

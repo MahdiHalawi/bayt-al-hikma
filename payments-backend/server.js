@@ -27,6 +27,7 @@ const { searchContent } = require("./contentSearchService");
 const { searchVideos } = require("./videoSearchService");
 const { verifyPaddleSignature } = require("./paddleWebhookService");
 const { verifyRequestAuth } = require("./authHelper");
+const { hasReachedFreePathLimit } = require("./pathLimitService");
 
 // Both of these are made OPTIONAL on purpose — if you haven't decided on
 // a payment provider yet (or haven't set up Supabase), the server still
@@ -201,6 +202,22 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
   const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
   if (!user) {
     return res.status(401).json({ error: authError || "Unauthorized" });
+  }
+
+  // The real, authoritative enforcement of the free-tier "one path"
+  // limit — this MUST live here, not just in the frontend UI. See
+  // pathLimitService.js for the full reasoning and direct unit tests.
+  try {
+    if (await hasReachedFreePathLimit(sbAdmin, user.id)) {
+      return res.status(403).json({
+        error: "Free accounts are limited to one learning path. Upgrade to Premium for unlimited paths.",
+        code: "FREE_PATH_LIMIT_REACHED",
+      });
+    }
+  } catch (err) {
+    console.error("Free-tier path limit check failed:", err);
+    // Don't let an unrelated error block a legitimate request — but
+    // this case is genuinely worth monitoring.
   }
 
   const { goal, level, format, timeCommitment, items, previouslyCompleted, levelOther } = req.body || {};
