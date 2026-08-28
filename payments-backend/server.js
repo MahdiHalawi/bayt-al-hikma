@@ -25,7 +25,7 @@ const { createClient } = require("@supabase/supabase-js");
 const { sequencePath } = require("./sequenceService");
 const { searchContent } = require("./contentSearchService");
 const { searchVideos } = require("./videoSearchService");
-const { verifyPaddleSignature } = require("./paddleWebhookService");
+const { verifyPaddleSignature, resolvePremiumAction } = require("./paddleWebhookService");
 const { verifyRequestAuth } = require("./authHelper");
 const { hasReachedFreePathLimit } = require("./pathLimitService");
 
@@ -136,17 +136,28 @@ app.post("/webhook-paddle", express.raw({ type: "application/json" }), async (re
     return res.status(400).send("Invalid JSON");
   }
 
-  if (event.event_type === "transaction.completed") {
-    const userId = event.data && event.data.custom_data && event.data.custom_data.userId;
+  // See resolvePremiumAction in paddleWebhookService.js for the full
+  // reasoning and direct unit tests — this is the fix for a real
+  // production bug where the old code only listened for
+  // "transaction.completed", an event Paddle doesn't actually send for
+  // this kind of subscription product.
+  const { action, userId } = resolvePremiumAction(event);
 
+  if (action === "grant") {
     if (!userId) {
-      console.warn("Paddle transaction completed but no custom_data.userId was set — cannot link this payment to a user.");
+      console.warn(`Paddle ${event.event_type} received but no custom_data.userId was set — cannot link this payment to a user.`, JSON.stringify(event.data && event.data.custom_data));
     } else if (!sbAdmin) {
       console.warn("Payment confirmed but Supabase admin isn't configured — could not mark the user premium.");
     } else {
       const { error } = await sbAdmin.from("profiles").upsert({ id: userId, is_premium: true });
       if (error) console.error("Failed to mark user premium in Supabase:", error.message);
-      else console.log(`User ${userId} marked premium after real Paddle payment confirmation.`);
+      else console.log(`User ${userId} marked premium after real Paddle ${event.event_type} confirmation.`);
+    }
+  } else if (action === "revoke") {
+    if (userId && sbAdmin) {
+      const { error } = await sbAdmin.from("profiles").upsert({ id: userId, is_premium: false });
+      if (error) console.error("Failed to revoke premium in Supabase:", error.message);
+      else console.log(`User ${userId} moved back to free after subscription cancellation.`);
     }
   }
 

@@ -45,3 +45,35 @@ function verifyPaddleSignature(rawBody, signatureHeader, secretKey) {
 }
 
 module.exports = { verifyPaddleSignature };
+
+// Determines what premium-status action (if any) a given, already-parsed
+// Paddle webhook event implies, and for which user. Extracted into its
+// own small, directly testable function — real production bug found
+// exactly this way: this used to only act on "transaction.completed",
+// but Paddle's own documentation explicitly recommends granting access
+// on "subscription.created" for a recurring subscription product, and
+// that's genuinely what Paddle sends — confirmed directly against real
+// delivered events for two real live payments where the old code
+// silently did nothing while still replying "OK" to Paddle.
+//
+// Returns { action: "grant" | "revoke" | null, userId: string | null }.
+function resolvePremiumAction(event) {
+  const GRANT_EVENTS = ["subscription.created", "subscription.activated", "transaction.completed"];
+  const REVOKE_EVENTS = ["subscription.canceled"];
+
+  if (!event || !event.event_type) return { action: null, userId: null };
+
+  // custom_data can appear under slightly different keys depending on
+  // the event type — check both rather than assuming one fixed shape,
+  // since exactly this kind of mismatch caused the original bug.
+  const userId =
+    (event.data && event.data.custom_data && event.data.custom_data.userId) ||
+    (event.data && event.data.customData && event.data.customData.userId) ||
+    null;
+
+  if (GRANT_EVENTS.includes(event.event_type)) return { action: "grant", userId };
+  if (REVOKE_EVENTS.includes(event.event_type)) return { action: "revoke", userId };
+  return { action: null, userId };
+}
+
+module.exports.resolvePremiumAction = resolvePremiumAction;
