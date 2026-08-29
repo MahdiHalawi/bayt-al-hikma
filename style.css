@@ -96,32 +96,32 @@
       box-sizing: border-box;
     }
     .location-dropdown {
-      /* Converted from position:absolute floating overlay to the SAME
-         reliable in-flow expand/collapse pattern already used
-         successfully by .how-it-works elsewhere on this site — after
-         multiple real, confirmed Safari-specific bugs with the
-         absolute/fixed positioning approach (empty gaps, off-screen
-         clipping) that couldn't be resolved through positioning fixes
-         alone, this avoids that whole category of bug by never using
-         positioned overlays for these dropdowns at all. Real tradeoff,
-         stated plainly: an open dropdown now pushes page content down
-         slightly rather than floating over it — a visible but minor
-         UX change, traded for genuine reliability across devices. */
+      /* Genuine floating overlay — position:absolute, NOT fixed (the
+         one confirmed-buggy value on iOS Safari). This opens downward
+         over the page, matching the requested behavior, without
+         pushing the top bar or page content. Both language and
+         country buttons sit in the left-side group, so their
+         dropdowns align to their own left edge — safer than centering,
+         since centering risks clipping the left viewport edge for
+         the leftmost (language) button specifically. */
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
       overflow: hidden;
       max-height: 0;
       width: 0;
       opacity: 0;
       background: var(--night);
       border: 1px solid transparent;
-      transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease, margin-top .3s ease;
-      margin-top: 0;
+      transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease;
+      z-index: 20;
     }
     /* The site-wide .hidden class uses display:none, which can't be
        smoothly animated — an element just pops instantly rather than
        transitioning. This specific, more targeted override (matched by
        higher selector specificity, so it correctly wins even against
        .hidden's own !important) keeps these particular dropdowns as
-       real, present elements collapsed to zero height instead, so the
+       real, present elements collapsed to zero size instead, so the
        transition above can actually run. Nothing about the global
        .hidden class used everywhere else on the site is touched. */
     .location-dropdown.hidden {
@@ -132,13 +132,27 @@
       pointer-events: none;
     }
     .location-dropdown:not(.hidden) {
-      max-height: 300px;
+      /* The REAL root cause of the persistent empty-space bug, found
+         only now: a max-height TRANSITION has to animate toward a
+         specific fixed number (CSS can't smoothly transition to auto)
+         — so this used to share one generous value (300px) sized for
+         the long country list, but that same number became the
+         language dropdown's actual rendered height too, even though
+         its 3 items only need ~110px. It genuinely animated all the
+         way to 300px and stopped — real empty space below short
+         content, behaving much more like a forced height than a true
+         cap. Each dropdown now gets its own honest target instead. */
+      max-height: 110px;
       width: min(260px, 90vw);
       opacity: 1;
       border-color: rgba(217,169,79,.5);
       box-shadow: 6px 6px 0 rgba(0,0,0,.2);
-      margin-top: 6px;
       padding: .3rem;
+    }
+    /* The country list is long (240+ entries) and genuinely needs the
+       larger cap — only this specific dropdown gets it. */
+    #location-dropdown:not(.hidden) {
+      max-height: 300px;
     }
     .location-search {
       width: 100%;
@@ -895,8 +909,12 @@
     }
 
     .auth-panel {
-      /* Same conversion as .location-dropdown above, and for the exact
-         same reasons — see that comment for the full explanation. */
+      /* Genuine floating overlay, matching .location-dropdown's
+         approach above — position:absolute (never fixed), opens
+         downward without pushing the top bar or page content. */
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
       overflow: hidden;
       max-height: 0;
       width: 0;
@@ -904,8 +922,8 @@
       border: 1px solid transparent;
       background: var(--night);
       text-align: left;
-      transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease, margin-top .3s ease;
-      margin-top: 0;
+      transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease;
+      z-index: 20;
     }
     .auth-panel.hidden {
       display: block !important;
@@ -915,22 +933,12 @@
       pointer-events: none;
     }
     .auth-panel:not(.hidden) {
-      /* This specific panel is the rightmost top-bar item — being a
-         normal in-flow block, its expanded width was adding directly
-         to its flex item's width, which combined with its sibling
-         group could exceed the viewport and push the whole button
-         off-screen (confirmed directly: button measured moving from
-         x:271 to x:391 on a 375px-wide test). Positioning ABSOLUTELY
-         (not fixed — that's the one confirmed-buggy value) removes it
-         from flex-width calculations entirely, so it can never affect
-         its own trigger button's position again. This is different
-         from the earlier empty-gap bug: that involved max-height:
-         fit-content specifically, which isn't used here — an explicit
-         numeric max-height is kept, avoiding that specific issue. */
-      position: absolute;
-      top: 100%;
-      right: 0;
-      max-height: 600px;
+      /* Tightened from 600px (a generous guess) to a closer estimate
+         of real content height — the login form plus its nested
+         "forgot password" panel, when both are visible, comfortably
+         fits within this, same "honest target" principle as the
+         language/location dropdowns above. */
+      max-height: 460px;
       width: min(280px, 90vw);
       opacity: 1;
       border-color: rgba(217,169,79,.62);
@@ -940,11 +948,15 @@
       z-index: 20;
     }
     .auth-panel-title { font: 700 .78rem "Work Sans", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--light-gold); margin: 0 0 .7rem; }
-    /* This one is nested INSIDE the already-collapsible returning-panel
-       above — no longer needs position overrides now that neither uses
-       absolute positioning, but still shouldn't cast its own separate
-       shadow/box treatment since it's a sub-section of its parent, not
-       an independent floating panel of its own. */
+    /* This one is nested INSIDE the already-floating returning-panel
+       above — the base .auth-panel rule now uses position:absolute
+       again (for the floating-overlay behavior), which this nested
+       instance must explicitly opt back OUT of, since it should sit
+       naturally within its parent's own content flow, not also try to
+       float as its own independent overlay. */
+    #reset-request-panel.auth-panel {
+      position: static;
+    }
     #reset-request-panel.auth-panel:not(.hidden) {
       box-shadow: none;
       padding-top: 0;
@@ -1022,14 +1034,12 @@
          mobile, where it was never going to look right anyway, and
          leave it fully intact on desktop where it was designed for. */
       .dark-room::after { display: none; }
-      /* The dropdown positioning hacks that used to live here (through
-         several real, hard-won rounds — position:fixed, then
-         position:absolute anchored to .top-bar) are gone entirely now.
-         The dropdowns were converted to a genuinely simpler, in-flow
-         expand/collapse pattern (see .location-dropdown and .auth-panel
-         above) that needs no special positioning at all, on any screen
-         size — which is exactly why it's more reliable than continuing
-         to patch positioning values was ever going to be. */
+      /* No mobile-specific dropdown positioning override needed here —
+         .location-dropdown and .auth-panel above already use a
+         responsive width (min(...,90vw)) that adapts to any screen
+         size on its own, so the same position:absolute rules work
+         correctly across desktop and mobile without a separate
+         override for either. */
       /* These headings all have large, fixed pixel font sizes set as
          inline styles (e.g. 62px), which don't scale down for narrow
          phone screens at all — leaving text crowding right up against
