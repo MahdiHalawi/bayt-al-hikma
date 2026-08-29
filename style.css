@@ -73,6 +73,7 @@
     .location-picker { position: relative; }
     .language-picker { position: relative; }
     .auth-picker { position: relative; }
+    .top-bar-left-group { display: flex; align-items: center; gap: .5rem; }
     .location-badge {
       font: 500 .7rem "Work Sans", sans-serif;
       color: var(--light-gold);
@@ -81,6 +82,13 @@
       border: 1px solid rgba(217,169,79,.4);
       padding: .3rem .6rem;
       cursor: pointer;
+      /* Uniform size across all 3 top-bar buttons (language, login,
+         country) — they previously sized to their own text, so "EN"
+         and "Log in" and "🇱🇧 Lebanon" all ended up visibly different
+         widths. A shared min-width and centered text keeps them
+         visually consistent regardless of label length. */
+      min-width: 92px;
+      text-align: center;
     }
     .location-dropdown {
       position: absolute;
@@ -88,6 +96,7 @@
       left: 50%;
       transform: translateX(-50%);
       min-width: 220px;
+      height: fit-content;
       background: var(--night);
       border: 1px solid rgba(217,169,79,.5);
       box-shadow: 6px 6px 0 rgba(0,0,0,.2);
@@ -109,7 +118,16 @@
       list-style: none;
       margin: 0;
       padding: 0;
-      max-height: 260px;
+      /* First attempt used only max-height, reasoning that a true
+         "maximum" shouldn't force extra height on short content — but
+         a real device test showed a genuine empty gap below the
+         3-item language list anyway, a real rendering difference my
+         simulated testing couldn't catch. Being explicit with
+         height:fit-content this time forces sizing-to-content directly,
+         rather than relying on max-height's default behavior actually
+         holding on every real device. */
+      height: fit-content;
+      max-height: min(260px, 60vh);
       overflow-y: auto;
     }
     .location-list li {
