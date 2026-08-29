@@ -944,20 +944,30 @@
          mobile, where it was never going to look right anyway, and
          leave it fully intact on desktop where it was designed for. */
       .dark-room::after { display: none; }
-      /* Real bug found through actual testing on a narrow viewport,
-         not caught by earlier desktop-width checks: all 3 top-bar
-         dropdowns (language, login, location) anchor their position
-         relative to their own trigger button — fine on desktop, where
-         there's enough room either side, but on a narrow phone screen
-         the panel's real width can extend well past the viewport edge
-         regardless of which side it's anchored to. Center each one
-         relative to the whole screen instead, and cap its width to
-         never exceed the viewport (minus a small margin), so it's
-         always fully visible no matter where its button sits. */
+      /* Real bug found through actual testing on a narrow viewport:
+         all 3 top-bar dropdowns anchor their position relative to their
+         own small trigger button — fine on desktop, but on a narrow
+         phone the panel's real width can extend past the viewport edge
+         regardless of which side it's anchored to.
+
+         First attempt used position:fixed centered on the viewport —
+         worked correctly in testing, but failed on a real iPhone. Root
+         cause: iOS 26 Safari currently has a real, widely-documented
+         bug specifically affecting position:fixed elements (confirmed
+         across multiple independent reports, including Apple's own
+         developer forums) — unrelated to this site, but very real
+         right now. Avoiding position:fixed entirely fixes this: anchor
+         to .top-bar instead (which already establishes a valid
+         containing block via its own existing position:fixed), so the
+         dropdowns only rely on ONE layer of that positioning, not two
+         independent ones compounding the same bug. */
+      .language-picker, .auth-picker, .location-picker {
+        position: static !important;
+      }
       .location-dropdown,
       #returning-panel.auth-panel {
-        position: fixed !important;
-        top: 64px !important;
+        position: absolute !important;
+        top: 58px !important;
         left: 50% !important;
         right: auto !important;
         transform: translateX(-50%) !important;
