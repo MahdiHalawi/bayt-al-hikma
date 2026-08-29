@@ -100,13 +100,19 @@
          one confirmed-buggy value on iOS Safari). This opens downward
          over the page, matching the requested behavior, without
          pushing the top bar or page content. Both language and
-         country buttons sit in the left-side group, so their
-         dropdowns align to their own left edge — safer than centering,
-         since centering risks clipping the left viewport edge for
-         the leftmost (language) button specifically. */
+         country buttons sit in the START of the top bar (left in LTR,
+         but genuinely the RIGHT side once the page flips to RTL for
+         Arabic) — using the LOGICAL property inset-inline-start
+         instead of the physical "left" means this automatically
+         tracks the button's own real position in either direction,
+         rather than staying hardcoded to "left" even after RTL moves
+         the button itself to the opposite side (confirmed as the
+         actual cause of a real bug: the dropdown was measured
+         overflowing to x:531 on a 375px RTL screen, using physical
+         left:0 while its trigger button had already moved right). */
       position: absolute;
       top: calc(100% + 6px);
-      left: 0;
+      inset-inline-start: 0;
       overflow: hidden;
       max-height: 0;
       width: 0;
@@ -911,10 +917,16 @@
     .auth-panel {
       /* Genuine floating overlay, matching .location-dropdown's
          approach above — position:absolute (never fixed), opens
-         downward without pushing the top bar or page content. */
+         downward without pushing the top bar or page content.
+         inset-inline-end (not physical "right") for the same reason
+         as .location-dropdown's inset-inline-start above — the login
+         button sits at the END of the top bar (right in LTR, but the
+         LEFT side once RTL flips the layout for Arabic), and this
+         logical property automatically tracks that real position
+         instead of staying hardcoded to one physical side. */
       position: absolute;
       top: calc(100% + 6px);
-      right: 0;
+      inset-inline-end: 0;
       overflow: hidden;
       max-height: 0;
       width: 0;
