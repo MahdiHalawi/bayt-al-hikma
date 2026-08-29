@@ -55,7 +55,7 @@ const translations = {
     goalPlaceholder: "I want to understand philosophy",
     goalError: "Tell the hoopoe what you would like to understand first.",
     enter_house: "Enter the house",
-    returningLink: "Been here before? Log in",
+    returningLink: "Log in",
     returningPrompt: "Did you enter before? Come with me.",
     emailPlaceholder: "you@example.com",
     passwordPlaceholder: "••••••••",
@@ -173,7 +173,7 @@ const translations = {
     goalPlaceholder: "أريد أن أفهم الفلسفة",
     goalError: "أخبر الهدهد بما تريد أن تفهمه أولاً.",
     enter_house: "ادخل البيت",
-    returningLink: "هل دخلت من قبل؟ سجّل الدخول",
+    returningLink: "تسجيل الدخول",
     returningPrompt: "هل دخلت من قبل؟ تعال معي.",
     emailPlaceholder: "you@example.com",
     passwordPlaceholder: "••••••••",
@@ -291,7 +291,7 @@ const translations = {
     goalPlaceholder: "Je veux comprendre la philosophie",
     goalError: "Dites à la huppe ce que vous aimeriez comprendre.",
     enter_house: "Entrer dans la maison",
-    returningLink: "Déjà venu ? Se connecter",
+    returningLink: "Connexion",
     returningPrompt: "Êtes-vous déjà venu ? Venez avec moi.",
     emailPlaceholder: "vous@exemple.com",
     passwordPlaceholder: "••••••••",
@@ -425,7 +425,8 @@ function applyLang(lang) {
     if (translations.en[key]) el.placeholder = t(key);
   });
 
-  document.querySelectorAll(".lang-btn").forEach((b) => b.classList.toggle("active-lang", b.dataset.lang === lang));
+  const currentBtn = document.getElementById("language-current");
+  if (currentBtn) currentBtn.textContent = LANG_SHORT_LABEL[lang] || lang.toUpperCase();
 
   renderPathGrid();
   renderTracker();
@@ -738,8 +739,33 @@ function showScreen(name) {
 }
 
 // ---------- language ----------
-document.querySelectorAll(".lang-btn").forEach((btn) => {
-  btn.addEventListener("click", () => applyLang(btn.dataset.lang));
+// ---------- language: dropdown, matching the location picker pattern ----------
+const languageCurrent = document.getElementById("language-current");
+const languageDropdown = document.getElementById("language-dropdown");
+const languageList = document.getElementById("language-list");
+const LANG_SHORT_LABEL = { en: "EN", ar: "عر", fr: "FR" };
+
+function openLanguageList() {
+  languageDropdown.classList.remove("hidden");
+  languageCurrent.setAttribute("aria-expanded", "true");
+}
+function closeLanguageList() {
+  languageDropdown.classList.add("hidden");
+  languageCurrent.setAttribute("aria-expanded", "false");
+}
+
+languageList.querySelectorAll("li").forEach((li) => {
+  li.addEventListener("click", () => {
+    applyLang(li.dataset.lang);
+    closeLanguageList();
+  });
+});
+
+languageCurrent.addEventListener("click", () => {
+  languageDropdown.classList.contains("hidden") ? openLanguageList() : closeLanguageList();
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".language-picker")) closeLanguageList();
 });
 
 // ---------- location: real dropdown, not click-to-cycle ----------
@@ -834,6 +860,9 @@ goalForm.addEventListener("submit", (e) => {
 
 document.getElementById("returning-link").addEventListener("click", () => {
   document.getElementById("returning-panel").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".auth-picker")) document.getElementById("returning-panel").classList.add("hidden");
 });
 
 // ---------- password reset: requesting the link ----------

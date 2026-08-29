@@ -71,6 +71,8 @@
     }
 
     .location-picker { position: relative; }
+    .language-picker { position: relative; }
+    .auth-picker { position: relative; }
     .location-badge {
       font: 500 .7rem "Work Sans", sans-serif;
       color: var(--light-gold);
@@ -511,7 +513,13 @@
     }
 
     .searching-dots {
-      display: flex; justify-content: center; gap: .5rem; margin: 1rem;
+      /* Permanently removed per request — the rotating dashed ring
+         around the hoopoe (.seeking-bird-wrap::before) already conveys
+         "in progress" on its own. Overriding with !important here,
+         rather than touching the 5 separate places the JS toggles this
+         element's "hidden" class, keeps this a single, safe, low-risk
+         change instead of needing to edit multiple call sites. */
+      display: none !important;
     }
     .searching-dots span {
       width: 8px; height: 8px; border-radius: 50%; background: var(--light-gold);
@@ -832,14 +840,37 @@
     }
 
     .auth-panel {
-      max-width: 420px;
-      margin: 1.1rem auto 0;
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      max-width: 280px;
+      width: max-content;
       border: 1px solid rgba(217,169,79,.62);
       padding: 1rem;
-      background: rgba(16,25,59,.6);
+      background: var(--night);
+      box-shadow: 6px 6px 0 rgba(0,0,0,.2);
       text-align: left;
+      z-index: 16;
     }
     .auth-panel-title { font: 700 .78rem "Work Sans", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--light-gold); margin: 0 0 .7rem; }
+    /* The language button sits at the far-left of the top bar — the
+       inherited center-alignment (built for the right-side location
+       button, with room to expand either direction) clips off the left
+       edge of the viewport here. Align to the button's own left edge
+       instead, so it always has room to expand rightward on-screen. */
+    .language-picker .location-dropdown {
+      left: 0;
+      transform: none;
+    }
+    /* This one is nested INSIDE the already-positioned returning-panel
+       dropdown above — it should sit normally within that box, not
+       also try to independently float as its own absolute dropdown. */
+    #reset-request-panel.auth-panel {
+      position: static;
+      max-width: none;
+      width: auto;
+      box-shadow: none;
+    }
     .auth-panel input {
       color: var(--paper); background: rgba(16,25,59,.4);
       border: 1px solid rgba(240,200,120,.3); padding: .65rem .8rem; margin-bottom: .5rem;
@@ -905,6 +936,14 @@
       .action-button { width: 100%; }
       .path-grid { grid-template-columns: 1fr; }
       .display-heading { line-height: 1; }
+      /* The decorative gold frame border (inset 14px on every dark
+         screen) was designed with desktop's generous margins in mind —
+         on a narrow phone viewport, that same fixed inset doesn't leave
+         enough room, so it visibly overlaps real content boxes near the
+         screen edges. Simplest, safest fix: remove it specifically on
+         mobile, where it was never going to look right anyway, and
+         leave it fully intact on desktop where it was designed for. */
+      .dark-room::after { display: none; }
       /* These headings all have large, fixed pixel font sizes set as
          inline styles (e.g. 62px), which don't scale down for narrow
          phone screens at all — leaving text crowding right up against

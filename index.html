@@ -70,7 +70,32 @@
    </div>
    <!-- TOP BAR -->
    <nav class="top-bar" aria-label="Settings">
-    <div class="top-bar-group"><button type="button" class="lang-btn active-lang" data-lang="en">EN</button> <button type="button" class="lang-btn" data-lang="ar">عر</button> <button type="button" class="lang-btn" data-lang="fr">FR</button>
+    <div class="language-picker">
+     <button type="button" id="language-current" class="location-badge" aria-haspopup="listbox" aria-expanded="false">EN</button>
+     <div id="language-dropdown" class="location-dropdown hidden">
+      <ul id="language-list" class="location-list" role="listbox">
+       <li role="option" data-lang="en">EN — English</li>
+       <li role="option" data-lang="ar">عر — العربية</li>
+       <li role="option" data-lang="fr">FR — Français</li>
+      </ul>
+     </div>
+    </div>
+    <div class="auth-picker">
+     <button type="button" id="returning-link" class="location-badge" data-i18n="returningLink">Log in</button>
+     <div id="returning-panel" class="auth-panel hidden">
+      <p class="auth-panel-title" data-i18n="returningPrompt">Did you enter before? Come with me.</p>
+      <input type="email" id="return-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
+      <input type="password" id="return-password" data-i18n-placeholder="passwordPlaceholder" placeholder="••••••••">
+      <button type="button" id="return-login-btn" class="action-button" data-i18n="return_login">Take me to my track</button>
+      <p id="return-message" class="inline-message" role="status"></p>
+      <button type="button" id="forgot-password-link" class="text-button" data-i18n="forgot_password" style="margin-top:.4rem">Forgot password?</button>
+      <div id="reset-request-panel" class="auth-panel hidden" style="margin-top:.6rem">
+       <p class="auth-panel-title" data-i18n="reset_prompt">Enter your email and we'll send a reset link.</p>
+       <input type="email" id="reset-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
+       <button type="button" id="send-reset-link-btn" class="action-button" data-i18n="send_reset_link">Send reset link</button>
+       <p id="reset-request-message" class="inline-message" role="status"></p>
+      </div>
+     </div>
     </div>
     <div class="location-picker">
      <button type="button" id="location-current" class="location-badge" aria-haspopup="listbox" aria-expanded="false"><img src="https://flagcdn.com/20x15/lb.png" alt="" width="20" height="15" style="vertical-align:middle;margin-right:.35rem;border-radius:2px;">Lebanon</button>
@@ -130,21 +155,6 @@
         </div>
 
         <a href="pricing.html" target="_blank" rel="noopener" class="text-button" data-i18n="pricing_link_text" style="text-decoration:none; display:inline-block; margin-bottom:.4rem;">See pricing</a>
-        <button type="button" id="returning-link" class="text-button" data-i18n="returningLink">Been here before? Log in</button>
-        <div id="returning-panel" class="auth-panel hidden">
-          <p class="auth-panel-title" data-i18n="returningPrompt">Did you enter before? Come with me.</p>
-          <input type="email" id="return-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
-          <input type="password" id="return-password" data-i18n-placeholder="passwordPlaceholder" placeholder="••••••••">
-          <button type="button" id="return-login-btn" class="action-button" data-i18n="return_login">Take me to my track</button>
-          <p id="return-message" class="inline-message" role="status"></p>
-          <button type="button" id="forgot-password-link" class="text-button" data-i18n="forgot_password" style="margin-top:.4rem">Forgot password?</button>
-          <div id="reset-request-panel" class="auth-panel hidden" style="margin-top:.6rem">
-            <p class="auth-panel-title" data-i18n="reset_prompt">Enter your email and we'll send a reset link.</p>
-            <input type="email" id="reset-email" data-i18n-placeholder="emailPlaceholder" placeholder="you@example.com">
-            <button type="button" id="send-reset-link-btn" class="action-button" data-i18n="send_reset_link">Send reset link</button>
-            <p id="reset-request-message" class="inline-message" role="status"></p>
-          </div>
-        </div>
        </div>
        <aside class="hoopoe-stage" aria-label="The hoopoe welcomes you"><span class="small-star star-one" aria-hidden="true">✦</span> <span class="small-star star-two" aria-hidden="true">✧</span> <span class="small-star star-three" aria-hidden="true">✦</span>
         <div class="astrolabe" aria-hidden="true"></div>
