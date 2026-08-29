@@ -944,6 +944,26 @@
          mobile, where it was never going to look right anyway, and
          leave it fully intact on desktop where it was designed for. */
       .dark-room::after { display: none; }
+      /* Real bug found through actual testing on a narrow viewport,
+         not caught by earlier desktop-width checks: all 3 top-bar
+         dropdowns (language, login, location) anchor their position
+         relative to their own trigger button — fine on desktop, where
+         there's enough room either side, but on a narrow phone screen
+         the panel's real width can extend well past the viewport edge
+         regardless of which side it's anchored to. Center each one
+         relative to the whole screen instead, and cap its width to
+         never exceed the viewport (minus a small margin), so it's
+         always fully visible no matter where its button sits. */
+      .location-dropdown,
+      #returning-panel.auth-panel {
+        position: fixed !important;
+        top: 64px !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        width: calc(100vw - 2rem) !important;
+        max-width: calc(100vw - 2rem) !important;
+      }
       /* These headings all have large, fixed pixel font sizes set as
          inline styles (e.g. 62px), which don't scale down for narrow
          phone screens at all — leaving text crowding right up against
