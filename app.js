@@ -146,6 +146,8 @@ const translations = {
     verse_heading: "A seeker brings certain news",
     close_verse: "Return to the manuscript",
     upgrade_eyebrow: "Unlock the rest of the house",
+    upgrade_limit_message: "You've used your free path. Upgrade to Premium for unlimited paths, or go back to the one you already have.",
+    go_to_paths_button: "Go to my path",
     pricing_period: "/month",
     pricing_feature_1: "Every step of every path, not just the first",
     pricing_feature_2: "Unlimited new paths, any time",
@@ -265,6 +267,8 @@ const translations = {
     verse_heading: "طائر يجلب خبرًا يقينًا",
     close_verse: "العودة إلى المخطوطة",
     upgrade_eyebrow: "افتح بقية البيت",
+    upgrade_limit_message: "لقد استخدمت مسارك المجاني. قم بالترقية إلى Premium للحصول على مسارات غير محدودة، أو عد إلى المسار الذي لديك بالفعل.",
+    go_to_paths_button: "الذهاب إلى مساري",
     pricing_period: "/شهريًا",
     pricing_feature_1: "كل خطوة من كل طريق، وليس الأولى فقط",
     pricing_feature_2: "مسارات جديدة غير محدودة، في أي وقت",
@@ -384,6 +388,8 @@ const translations = {
     verse_heading: "Une messagère apporte une nouvelle certaine",
     close_verse: "Retour au manuscrit",
     upgrade_eyebrow: "Débloquez le reste de la maison",
+    upgrade_limit_message: "Vous avez utilisé votre parcours gratuit. Passez à Premium pour des parcours illimités, ou revenez à celui que vous avez déjà.",
+    go_to_paths_button: "Aller à mon parcours",
     pricing_period: "/mois",
     pricing_feature_1: "Chaque étape de chaque chemin, pas seulement la première",
     pricing_feature_2: "Chemins illimités, à tout moment",
@@ -1386,7 +1392,7 @@ function startSeekingDelay(previouslyCompleted = []) {
         document.getElementById("searching-dots").classList.add("hidden");
         document.getElementById("seeking-status").textContent = "";
         document.querySelector(".seeking-bird-wrap").classList.add("loading-complete");
-        openUpgrade();
+        openUpgrade("limit");
         return;
       }
       throw err; // anything else is a genuine, unexpected failure — surface it normally
@@ -2007,8 +2013,20 @@ verseOverlay.addEventListener("click", (e) => { if (e.target === verseOverlay) v
 
 // ---------- upgrade / payment overlay ----------
 const upgradeOverlay = document.getElementById("upgrade-overlay");
-function openUpgrade() {
+function openUpgrade(reason = null) {
   document.getElementById("checkout-status").textContent = "";
+  // Real UX gap fixed here: this overlay opens from several different
+  // contexts (a locked card, the paths list, the premium-first flow,
+  // and now a genuine free-limit block) — but always looked identical,
+  // with no explanation for why someone hitting the limit specifically
+  // was suddenly shown a payment screen out of nowhere. Only that one
+  // specific context now shows the explanatory message and an easy way
+  // back to their existing path, instead of feeling like a dead end.
+  const limitMsg = document.getElementById("upgrade-limit-message");
+  const goToPathsBtn = document.getElementById("go-to-paths-button");
+  const showLimitContext = reason === "limit" && state.userId && !state.premiumFirstFlow;
+  limitMsg.classList.toggle("hidden", !showLimitContext);
+  goToPathsBtn.classList.toggle("hidden", !showLimitContext);
   upgradeOverlay.classList.remove("hidden");
 }
 
@@ -2031,6 +2049,10 @@ function handlePaddleCheckoutClosed() {
 
 document.getElementById("close-upgrade-button").addEventListener("click", handlePaddleCheckoutClosed);
 upgradeOverlay.addEventListener("click", (e) => { if (e.target === upgradeOverlay) handlePaddleCheckoutClosed(); });
+document.getElementById("go-to-paths-button").addEventListener("click", () => {
+  upgradeOverlay.classList.add("hidden");
+  showPathsList();
+});
 
 // Remembers the last known premium status in localStorage — this lets
 // us reliably detect "you just became premium" from ANY place that
