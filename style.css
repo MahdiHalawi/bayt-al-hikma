@@ -579,6 +579,17 @@
       border: 1px dashed rgba(240,200,120,.7);
       animation: slowTurn 16s linear infinite reverse;
     }
+    /* Stopped once loading genuinely completes (see startSeekingDelay
+       in app.js) — a continuously-spinning circle reads as "still
+       working" indefinitely, even after the real result is ready.
+       Pausing rather than removing the animation keeps it frozen at
+       whatever angle it already reached, a smoother visual stop than
+       resetting back to a fixed position. JS can't select a ::before
+       pseudo-element directly, so this is toggled via a class on the
+       real parent element instead. */
+    .seeking-bird-wrap.loading-complete::before {
+      animation-play-state: paused;
+    }
 
     .seeking-bird-wrap img {
       width: 215px; height: 215px;

@@ -1318,6 +1318,11 @@ async function continueAfterConfirmedSignup(userId) {
 function startSeekingDelay(previouslyCompleted = []) {
   document.getElementById("searching-dots").classList.remove("hidden");
   document.getElementById("seeking-status").textContent = t("seekingStatus1");
+  // Reset here (not just at the one real completion point below) so the
+  // rotation correctly resumes if this runs a second time — generating
+  // another path, or "Expand my scroll" — rather than staying paused
+  // from a previous completion.
+  document.querySelector(".seeking-bird-wrap").classList.remove("loading-complete");
 
   setTimeout(async () => {
     const topic = resolveTopic(state.goal);
@@ -1371,6 +1376,10 @@ function startSeekingDelay(previouslyCompleted = []) {
 
     document.getElementById("searching-dots").classList.add("hidden");
     document.getElementById("seeking-status").textContent = t("seekingStatus2");
+    // The real signal this is genuinely done, not just paused mid-step —
+    // a continuously-spinning circle otherwise reads as "still working"
+    // even once the actual result is ready.
+    document.querySelector(".seeking-bird-wrap").classList.add("loading-complete");
     const btn = document.getElementById("secret-message-btn");
     btn.classList.remove("hidden");
     btn.textContent = t("secretText");
