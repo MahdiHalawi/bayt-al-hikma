@@ -56,6 +56,7 @@ const translations = {
     goalError: "Tell the hoopoe what you would like to understand first.",
     enter_house: "Enter the house",
     returningLink: "Log in",
+    logOutLink: "Log out",
     returningPrompt: "Did you enter before? Come with me.",
     emailPlaceholder: "you@example.com",
     passwordPlaceholder: "••••••••",
@@ -174,6 +175,7 @@ const translations = {
     goalError: "أخبر الهدهد بما تريد أن تفهمه أولاً.",
     enter_house: "ادخل البيت",
     returningLink: "تسجيل الدخول",
+    logOutLink: "تسجيل الخروج",
     returningPrompt: "هل دخلت من قبل؟ تعال معي.",
     emailPlaceholder: "you@example.com",
     passwordPlaceholder: "••••••••",
@@ -292,6 +294,7 @@ const translations = {
     goalError: "Dites à la huppe ce que vous aimeriez comprendre.",
     enter_house: "Entrer dans la maison",
     returningLink: "Connexion",
+    logOutLink: "Déconnexion",
     returningPrompt: "Êtes-vous déjà venu ? Venez avec moi.",
     emailPlaceholder: "vous@exemple.com",
     passwordPlaceholder: "••••••••",
@@ -872,6 +875,14 @@ goalForm.addEventListener("submit", (e) => {
 });
 
 document.getElementById("returning-link").addEventListener("click", () => {
+  if (state.userId) {
+    // Already authenticated — this button now reads "Log out" (see
+    // updateAuthButtonLabel), so clicking it should actually do that,
+    // not open a login panel that wouldn't make sense to show someone
+    // who's already signed in.
+    logOut();
+    return;
+  }
   document.getElementById("returning-panel").classList.toggle("hidden");
 });
 document.addEventListener("click", (e) => {
@@ -987,6 +998,7 @@ document.getElementById("return-login-btn").addEventListener("click", async () =
   }
 
   state.userId = data.user.id;
+  updateAuthButtonLabel();
 
   const { data: profile } = await sb
     .from("profiles")
@@ -1137,6 +1149,21 @@ async function hasReachedFreePathLimit(userId) {
   return count >= 1;
 }
 
+// The top-bar button previously always said "Log in" regardless of
+// whether someone was already authenticated — a real, confusing bug on
+// its own (looks like login failed, or invites a redundant second
+// login attempt). Updates the element's data-i18n KEY, not just its
+// visible text directly — applyLang() re-reads this attribute on every
+// language switch, so setting only textContent would get silently
+// overwritten back to "Log in" the next time someone changes languages
+// while already logged in.
+function updateAuthButtonLabel() {
+  const btn = document.getElementById("returning-link");
+  const key = state.userId ? "logOutLink" : "returningLink";
+  btn.setAttribute("data-i18n", key);
+  btn.textContent = t(key);
+}
+
 document.getElementById("continue-button").addEventListener("click", async () => {
   document.getElementById("signup-message").textContent = "";
   document.getElementById("signup-goto-login-btn").classList.add("hidden");
@@ -1284,6 +1311,7 @@ emailForm.addEventListener("submit", async (e) => {
 // logic can drift out of sync with itself.
 async function continueAfterConfirmedSignup(userId) {
   state.userId = userId;
+  updateAuthButtonLabel();
   trackFunnelEvent("signup_completed");
   // Every new real account gets a matching row in our own profiles table.
   try {
@@ -1348,8 +1376,21 @@ function startSeekingDelay(previouslyCompleted = []) {
     // on the person's level, choosing only from these real, verified
     // items (never inventing new ones). If the backend isn't running,
     // this gracefully falls back to the unsequenced live results rather
-    // than breaking anything.
-    state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted, state.levelOther);
+    // than breaking anything. The ONE exception: a genuine free-limit
+    // rejection must stop this flow entirely, not degrade — see the
+    // real bug this fixes in sequenceWithAI's own comment above it.
+    try {
+      state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted, state.levelOther);
+    } catch (err) {
+      if (err.isFreeLimitBlock) {
+        document.getElementById("searching-dots").classList.add("hidden");
+        document.getElementById("seeking-status").textContent = "";
+        document.querySelector(".seeking-bird-wrap").classList.add("loading-complete");
+        openUpgrade();
+        return;
+      }
+      throw err; // anything else is a genuine, unexpected failure — surface it normally
+    }
     state.currentPathId = null;
     state.completed = new Set();
 
@@ -1652,10 +1693,31 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
       },
       body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted, levelOther }),
     });
-    if (!res.ok) throw new Error("sequencing backend not available");
+
+    if (!res.ok) {
+      // Real bug fixed here: a 403 free-limit rejection was previously
+      // treated identically to a genuine network/server failure, and
+      // the catch block below would quietly fall back to returning the
+      // raw items anyway — completely bypassing the backend's correct
+      // rejection, and letting a free user who reached this point
+      // (e.g. re-entering existing credentials after appearing logged
+      // out) generate an unlimited number of paths regardless of the
+      // real limit. This specific case must propagate as a distinct,
+      // recognizable signal instead of silently degrading.
+      let body = null;
+      try { body = await res.json(); } catch (e) {}
+      if (res.status === 403 && body && body.code === "FREE_PATH_LIMIT_REACHED") {
+        const limitError = new Error("free path limit reached");
+        limitError.isFreeLimitBlock = true;
+        throw limitError;
+      }
+      throw new Error("sequencing backend not available");
+    }
+
     const result = await res.json();
     return result.path && result.path.length > 0 ? result.path : items;
   } catch (err) {
+    if (err.isFreeLimitBlock) throw err; // re-throw — the caller must handle this distinctly, not degrade
     console.warn("AI sequencing unavailable, using unsequenced live results:", err.message);
     return items;
   }
@@ -1917,6 +1979,7 @@ async function logOut() {
   }
 
   state.userId = null;
+  updateAuthButtonLabel();
   state.isPremium = false;
   state.currentPath = [];
   state.currentPathId = null;
@@ -2153,6 +2216,7 @@ if (window.lucide) lucide.createIcons();
     }
 
     state.userId = session.user.id;
+    updateAuthButtonLabel();
 
     const { data: profile } = await sb
       .from("profiles")
