@@ -148,6 +148,7 @@ const translations = {
     upgrade_eyebrow: "Unlock the rest of the house",
     upgrade_limit_message: "You've used your free path. Upgrade to Premium for unlimited paths, or go back to the one you already have.",
     go_to_paths_button: "Go to my path",
+    seeking_go_to_path: "✦ Go to your path ✦",
     pricing_period: "/month",
     pricing_feature_1: "Every step of every path, not just the first",
     pricing_feature_2: "Unlimited new paths, any time",
@@ -269,6 +270,7 @@ const translations = {
     upgrade_eyebrow: "افتح بقية البيت",
     upgrade_limit_message: "لقد استخدمت مسارك المجاني. قم بالترقية إلى Premium للحصول على مسارات غير محدودة، أو عد إلى المسار الذي لديك بالفعل.",
     go_to_paths_button: "الذهاب إلى مساري",
+    seeking_go_to_path: "✦ اذهب إلى مسارك ✦",
     pricing_period: "/شهريًا",
     pricing_feature_1: "كل خطوة من كل طريق، وليس الأولى فقط",
     pricing_feature_2: "مسارات جديدة غير محدودة، في أي وقت",
@@ -390,6 +392,7 @@ const translations = {
     upgrade_eyebrow: "Débloquez le reste de la maison",
     upgrade_limit_message: "Vous avez utilisé votre parcours gratuit. Passez à Premium pour des parcours illimités, ou revenez à celui que vous avez déjà.",
     go_to_paths_button: "Aller à mon parcours",
+    seeking_go_to_path: "✦ Accédez à votre parcours ✦",
     pricing_period: "/mois",
     pricing_feature_1: "Chaque étape de chaque chemin, pas seulement la première",
     pricing_feature_2: "Chemins illimités, à tout moment",
@@ -1357,6 +1360,13 @@ function startSeekingDelay(previouslyCompleted = []) {
   // another path, or "Expand my scroll" — rather than staying paused
   // from a previous completion.
   document.querySelector(".seeking-bird-wrap").classList.remove("loading-complete");
+  // Same reset reasoning as above — a previous attempt's "limit
+  // blocked" mode shouldn't leak into this fresh attempt, in case an
+  // earlier try was blocked and a later one (after upgrading, say)
+  // succeeds normally.
+  const secretBtn = document.getElementById("secret-message-btn");
+  delete secretBtn.dataset.mode;
+  secretBtn.classList.add("hidden");
 
   setTimeout(async () => {
     const topic = resolveTopic(state.goal);
@@ -1392,6 +1402,19 @@ function startSeekingDelay(previouslyCompleted = []) {
         document.getElementById("searching-dots").classList.add("hidden");
         document.getElementById("seeking-status").textContent = "";
         document.querySelector(".seeking-bird-wrap").classList.add("loading-complete");
+        // Real gap fixed here: previously, closing the overlay via
+        // "Not now" (rather than the overlay's own "Go to my path"
+        // button) left the person stuck on an empty seeking screen
+        // with genuinely nothing to do — the button that normally
+        // reveals a freshly-generated path never appears in this
+        // blocked scenario, since nothing was actually generated. This
+        // repurposes that same button as a persistent way forward that
+        // stays visible on the underlying screen itself, regardless of
+        // which overlay button (or none at all) they actually click.
+        const secretBtn = document.getElementById("secret-message-btn");
+        secretBtn.dataset.mode = "limit-blocked";
+        secretBtn.textContent = t("seeking_go_to_path");
+        secretBtn.classList.remove("hidden");
         openUpgrade("limit");
         return;
       }
@@ -1763,6 +1786,11 @@ async function searchContentWithAI(goal, contentType, level, contentLanguage) {
 }
 
 document.getElementById("secret-message-btn").addEventListener("click", () => {
+  const btn = document.getElementById("secret-message-btn");
+  if (btn.dataset.mode === "limit-blocked") {
+    showPathsList();
+    return;
+  }
   trackFunnelEvent("path_generated", { contentType: state.contentType, itemCount: state.currentPath.length });
   renderPathGrid();
   showScreen("reveal");
