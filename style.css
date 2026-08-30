@@ -614,6 +614,14 @@
       border: 5px solid var(--gold);
       animation: seekFloat 3.8s ease-in-out infinite;
     }
+    /* This is the SECOND, separate movement on this screen — the
+       hoopoe image's own drift/rotation, independent from the outer
+       dashed ring's spin (which already gets this same treatment
+       above). Both need to stop for "loading is finished" to actually
+       read as finished, not just partially so. */
+    .seeking-bird-wrap.loading-complete img {
+      animation-play-state: paused;
+    }
 
     .searching-dots {
       /* Permanently removed per request — the rotating dashed ring
