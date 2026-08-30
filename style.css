@@ -92,8 +92,25 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      text-align: center;
       box-sizing: border-box;
+      /* Real, confirmed bug: the Lebanon button's flag image was
+         stacking ABOVE the "LB" text instead of sitting beside it,
+         making that one button visibly taller than EN/Log in — some
+         browsers give <button> unusual default internal layout for
+         mixed image+text content. inline-flex removes any ambiguity:
+         content is forced onto one strict horizontal line, centered,
+         regardless of browser-specific default behavior. */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      /* Even with inline-flex, the Lebanon button's flag image (15px
+         tall) was still making that button ~3px taller than the pure-
+         text EN/Log in buttons, since a container naturally grows to
+         fit its tallest content. An explicit height, rather than
+         leaving it to whichever child happens to be tallest, removes
+         that remaining gap entirely — genuinely identical, not just
+         close. */
+      height: 32px;
     }
     .location-dropdown {
       /* Genuine floating overlay — position:absolute, NOT fixed (the
