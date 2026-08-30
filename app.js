@@ -781,7 +781,17 @@ function makeCountryLi(c) {
   li.dataset.country = c.name;
   li.addEventListener("click", () => {
     state.country = c.name;
-    locationCurrent.innerHTML = `${flagImg(c.code)}${c.name}`;
+    // The current-selection BUTTON uses the short code, not the full
+    // name — country names vary enormously in length ("LB" vs "United
+    // Arab Emirates"), and this button has a genuinely fixed width to
+    // stay visually uniform with the other 2 top-bar buttons. A fixed
+    // width sized for the longest possible country name would make
+    // the button awkwardly wide; sized for a short one (like this was)
+    // causes real, confirmed truncation/uneven padding for longer
+    // names. The short code always fits cleanly either way. The full
+    // name is still available as a native tooltip on hover.
+    locationCurrent.innerHTML = `${flagImg(c.code)}${c.code.toUpperCase()}`;
+    locationCurrent.title = c.name;
     closeLocationList();
   });
   return li;
@@ -837,7 +847,10 @@ document.addEventListener("click", (e) => {
 renderLocationList();
 {
   const c0 = COUNTRIES.find((c) => c.name === state.country);
-  if (c0) locationCurrent.innerHTML = `${flagImg(c0.code)}${c0.name}`;
+  if (c0) {
+    locationCurrent.innerHTML = `${flagImg(c0.code)}${c0.code.toUpperCase()}`;
+    locationCurrent.title = c0.name;
+  }
 }
 
 // ---------- landing: goal + returning-visitor login ----------
