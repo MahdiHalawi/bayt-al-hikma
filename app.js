@@ -467,6 +467,16 @@ const state = {
   userId: null,
   currentPath: [],
   currentPathId: null,
+  // Real, deliberate business decision: once a path has genuinely been
+  // viewed in full while Premium, its CONTENT stays fully unlocked
+  // forever, even if the subscription later lapses — matching how a
+  // one-time purchase works ("you paid for it, it's yours"). Explicitly
+  // does NOT extend to tracker access, though — that's a separate,
+  // deliberate distinction: an ongoing tool genuinely requires an
+  // active subscription, unlike content already paid for and received.
+  // Checked ALONGSIDE current premium status in renderPathGrid, not
+  // instead of it.
+  currentPathUnlockedForever: false,
   completed: new Set(),
 };
 
@@ -1065,7 +1075,7 @@ document.getElementById("return-login-btn").addEventListener("click", async () =
 async function showPathsList() {
   const { data: paths, error } = await sb
     .from("paths")
-    .select("id, goal, topic, content_type, content_language, items, created_at")
+    .select("id, goal, topic, content_type, content_language, items, created_at, unlocked_forever")
     .eq("user_id", state.userId)
     .order("created_at", { ascending: false });
 
@@ -1104,11 +1114,30 @@ function renderPathsList(paths) {
         state.currentPath = await buildPathReal(p.goal, p.content_type || "mix", p.content_language || "any", state.level);
       }
       state.goal = p.goal || "";
+      state.currentPathUnlockedForever = !!p.unlocked_forever;
 
-      // Tracking is Premium-only everywhere else in the app (the
-      // tracker-button on the reveal screen enforces this too) — a free
-      // user clicking their one saved path here must land on the same
-      // results/reveal screen, not bypass straight into the tracker.
+      // If they're currently Premium but this specific path was never
+      // marked as permanently unlocked (created back when they were
+      // free, then upgraded later — or created before this feature
+      // existed at all), mark it now. This is the fair, real-world
+      // case: viewing a path while genuinely Premium should always
+      // grant it permanent access, not just paths created after
+      // upgrading.
+      if (state.isPremium && !p.unlocked_forever) {
+        state.currentPathUnlockedForever = true;
+        try {
+          const { error } = await sb.from("paths").update({ unlocked_forever: true }).eq("id", p.id);
+          if (error) console.error("Could not mark path as permanently unlocked:", error.message);
+        } catch (err) {
+          console.error("Could not mark path as permanently unlocked:", err);
+        }
+      }
+
+      // Real, explicit product decision: content permanently stays
+      // unlocked (see pathIsFullyUnlocked below), but tracker access
+      // specifically requires an ACTIVE subscription — a free user
+      // with a permanently-unlocked path still lands on reveal, not
+      // tracker, matching the same rule everywhere else in the app.
       if (state.isPremium) {
         await loadProgressFromDb(state.userId, p.id);
         renderTracker();
@@ -1489,6 +1518,10 @@ function startSeekingDelay(previouslyCompleted = []) {
     }
     state.currentPathId = null;
     state.completed = new Set();
+    // A path generated while genuinely Premium is immediately, and
+    // permanently, unlocked — same fair reasoning as the click-handler
+    // fix above.
+    state.currentPathUnlockedForever = state.isPremium;
 
     if (state.userId) {
       try {
@@ -1501,6 +1534,7 @@ function startSeekingDelay(previouslyCompleted = []) {
             content_type: state.contentType,
             content_language: state.contentLanguage,
             items: state.currentPath, // the ACTUAL chosen items, not just enough info to re-search later
+            unlocked_forever: state.isPremium,
           })
           .select()
           .single();
@@ -1901,14 +1935,21 @@ function renderPathGrid() {
   let unlockedCount = Math.min(2, path.length);
   if (unlockedCount === path.length) unlockedCount = Math.max(0, path.length - 1);
 
-  document.getElementById("plan-badge").textContent = state.isPremium
+  // "Fully unlocked" now means either currently Premium, OR this
+  // specific path was genuinely unlocked while Premium at some point
+  // before — see currentPathUnlockedForever's own comment near state's
+  // definition for the real reasoning (paid access shouldn't vanish
+  // the moment a subscription lapses).
+  const pathIsFullyUnlocked = state.isPremium || state.currentPathUnlockedForever;
+
+  document.getElementById("plan-badge").textContent = pathIsFullyUnlocked
     ? t("premiumPlan")
     : unlockedCount > 1
     ? `${t("freePlanTwo")} ${path.length}`
     : `${t("freePlan")} ${path.length}`;
 
   path.forEach((book, i) => {
-    const locked = !state.isPremium && i >= unlockedCount;
+    const locked = !pathIsFullyUnlocked && i >= unlockedCount;
     const card = document.createElement("article");
     card.className = "path-card" + (locked ? " locked" : "");
 
@@ -1982,8 +2023,11 @@ function renderPathGrid() {
   trackerBtn.textContent = state.isPremium ? t("unrollTracker") : t("unlockTracker");
 }
 
-// Tracking is a Premium-only feature (as decided) — free users get a
-// prompt to upgrade instead of ever seeing the tracker screen.
+// Explicit product decision: content stays permanently unlocked once
+// earned (see pathIsFullyUnlocked in renderPathGrid), but tracker
+// access specifically requires an ACTIVE subscription — a real,
+// deliberate distinction between "content you paid for, keep it" and
+// "an ongoing tool that needs an active subscription to keep using."
 document.getElementById("tracker-button").addEventListener("click", () => {
   if (!state.isPremium) {
     openUpgrade();
