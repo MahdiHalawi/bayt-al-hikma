@@ -147,6 +147,7 @@ const translations = {
     close_verse: "Return to the manuscript",
     upgrade_eyebrow: "Unlock the rest of the house",
     upgrade_limit_message: "You've used your free path. Upgrade to Premium for unlimited paths, or go back to the one you already have.",
+    generic_fallback_note: "The hoopoe didn't quite recognize this topic, so what follows is a more general starting point rather than something built specifically for it. Try rephrasing your goal for a more tailored path.",
     go_to_paths_button: "Go to my path",
     seeking_go_to_path: "✦ Go to your path ✦",
     pricing_period: "/month",
@@ -269,6 +270,7 @@ const translations = {
     close_verse: "العودة إلى المخطوطة",
     upgrade_eyebrow: "افتح بقية البيت",
     upgrade_limit_message: "لقد استخدمت مسارك المجاني. قم بالترقية إلى Premium للحصول على مسارات غير محدودة، أو عد إلى المسار الذي لديك بالفعل.",
+    generic_fallback_note: "لم يتعرف الهدهد تمامًا على هذا الموضوع، لذا ما يلي هو نقطة انطلاق عامة أكثر بدلاً من مسار مبني خصيصًا له. حاول إعادة صياغة هدفك للحصول على مسار أكثر ملاءمة.",
     go_to_paths_button: "الذهاب إلى مساري",
     seeking_go_to_path: "✦ اذهب إلى مسارك ✦",
     pricing_period: "/شهريًا",
@@ -391,6 +393,7 @@ const translations = {
     close_verse: "Retour au manuscrit",
     upgrade_eyebrow: "Débloquez le reste de la maison",
     upgrade_limit_message: "Vous avez utilisé votre parcours gratuit. Passez à Premium pour des parcours illimités, ou revenez à celui que vous avez déjà.",
+    generic_fallback_note: "Le hoopoe n'a pas tout à fait reconnu ce sujet, donc ce qui suit est un point de départ plus général plutôt qu'un parcours conçu spécifiquement pour cela. Essayez de reformuler votre objectif pour un parcours plus adapté.",
     go_to_paths_button: "Aller à mon parcours",
     seeking_go_to_path: "✦ Accédez à votre parcours ✦",
     pricing_period: "/mois",
@@ -1423,6 +1426,10 @@ function startSeekingDelay(previouslyCompleted = []) {
   const secretBtn = document.getElementById("secret-message-btn");
   delete secretBtn.dataset.mode;
   secretBtn.classList.add("hidden");
+  // Same reasoning again — a previous attempt's "topic not recognized"
+  // note shouldn't linger if this fresh attempt (a rephrased goal,
+  // say) actually succeeds normally this time.
+  state.pathWasGenericFallback = false;
 
   setTimeout(async () => {
     const topic = resolveTopic(state.goal);
@@ -1437,6 +1444,9 @@ function startSeekingDelay(previouslyCompleted = []) {
     const levelToUse = previouslyCompleted.length > 0 ? "wellread" : state.level;
 
     let rawItems = await buildPathReal(state.goal, state.contentType, state.contentLanguage, levelToUse);
+    // Captured immediately — .filter() below returns a fresh array that
+    // wouldn't carry this custom property forward.
+    const goalWasNotRecognized = !!rawItems._usedGenericFallback;
 
     if (previouslyCompleted.length > 0) {
       const completedIds = new Set(previouslyCompleted.map((it) => it.id));
@@ -1453,6 +1463,7 @@ function startSeekingDelay(previouslyCompleted = []) {
     // real bug this fixes in sequenceWithAI's own comment above it.
     try {
       state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted, state.levelOther);
+      state.pathWasGenericFallback = goalWasNotRecognized;
     } catch (err) {
       if (err.isFreeLimitBlock) {
         document.getElementById("searching-dots").classList.add("hidden");
@@ -1702,29 +1713,47 @@ async function buildPathReal(goal, contentType, contentLanguage, level) {
   const staticItems = CATALOG[topic].books;
   const cleanTerm = extractSearchTerm(goal) || topic;
 
+  // Real gap found and fixed here: if the goal doesn't match any known
+  // topic keyword (topic === "default") AND the live search also comes
+  // back empty for it, the person was silently shown generic,
+  // unrelated "default" catalog items with zero indication anything
+  // went wrong — they'd reasonably assume this genuinely was their
+  // best-matched path, not a fallback. Tracked here and surfaced
+  // honestly by the caller (see startSeekingDelay) instead.
+  let usedGenericFallback = false;
+
   const wantsBooks = contentType === "books" || contentType === "mix";
   const wantsVideos = contentType === "videos" || contentType === "mix";
 
   let bookResults = [];
   if (wantsBooks) {
     const liveBooks = await searchBooksOpenLibrary(cleanTerm, contentLanguage);
-    bookResults =
-      liveBooks && liveBooks.length > 0
-        ? liveBooks
-        : filterItems(staticItems, "books", contentLanguage); // API failed/empty — fall back, still honoring language
+    if (liveBooks && liveBooks.length > 0) {
+      bookResults = liveBooks;
+    } else {
+      bookResults = filterItems(staticItems, "books", contentLanguage); // API failed/empty — fall back, still honoring language
+      if (topic === "default") usedGenericFallback = true;
+    }
   }
 
   let videoResults = [];
   if (wantsVideos) {
     const liveVideos = await searchVideosYouTube(cleanTerm, contentLanguage);
-    videoResults =
-      liveVideos && liveVideos.length > 0
-        ? liveVideos
-        : filterItems(staticItems, "videos", contentLanguage); // API failed/no key/empty — fall back, still honoring language
+    if (liveVideos && liveVideos.length > 0) {
+      videoResults = liveVideos;
+    } else {
+      videoResults = filterItems(staticItems, "videos", contentLanguage); // API failed/no key/empty — fall back, still honoring language
+      if (topic === "default") usedGenericFallback = true;
+    }
   }
 
-  if (contentType === "books") return bookResults;
-  if (contentType === "videos") return videoResults;
+  function markResult(arr) {
+    arr._usedGenericFallback = usedGenericFallback;
+    return arr;
+  }
+
+  if (contentType === "books") return markResult(bookResults);
+  if (contentType === "videos") return markResult(videoResults);
   if (contentType === "mix") {
     // Articles/courses stay static-only within "mix" for now — a
     // deliberate scoping choice to keep cost and complexity contained,
@@ -1732,17 +1761,18 @@ async function buildPathReal(goal, contentType, contentLanguage, level) {
     // YouTube. Picking "Articles" or "Courses" specifically DOES use
     // the real live search below.
     const remainingStatic = staticItems.filter((item) => item.type !== "book" && item.type !== "video");
-    return [...bookResults, ...videoResults, ...remainingStatic];
+    return markResult([...bookResults, ...videoResults, ...remainingStatic]);
   }
 
   if (contentType === "articles" || contentType === "courses") {
     const liveContent = await searchContentWithAI(goal, contentType, level || "basics", contentLanguage);
-    return liveContent && liveContent.length > 0
-      ? liveContent
-      : filterItems(staticItems, contentType, contentLanguage); // search failed/not configured — fall back to demo data
+    if (liveContent && liveContent.length > 0) return markResult(liveContent);
+    if (topic === "default") usedGenericFallback = true;
+    return markResult(filterItems(staticItems, contentType, contentLanguage)); // search failed/not configured — fall back to demo data
   }
 
-  return filterItems(staticItems, contentType, contentLanguage);
+  if (topic === "default") usedGenericFallback = true;
+  return markResult(filterItems(staticItems, contentType, contentLanguage));
 }
 
 // Sends the real, already-fetched items to the backend to be selected
@@ -1858,6 +1888,9 @@ function renderPathGrid() {
   if (!grid) return;
   grid.innerHTML = "";
   const path = state.currentPath.length ? state.currentPath : buildPath(state.goal);
+
+  const fallbackNote = document.getElementById("generic-fallback-note");
+  if (fallbackNote) fallbackNote.classList.toggle("hidden", !state.pathWasGenericFallback);
 
   // Free users see the first 2 steps unlocked — enough to actually
   // perceive the AI's real step-to-step progression, not just judge a
