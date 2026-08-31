@@ -2081,6 +2081,13 @@ document.getElementById("new-path-button").addEventListener("click", () => {
 document.getElementById("view-paths-button").addEventListener("click", () => {
   showPathsList();
 });
+document.getElementById("reveal-view-paths-button").addEventListener("click", () => {
+  // Real bug fixed here: someone (a free user specifically, since
+  // tracker access is Premium-only) who clicked into a saved path from
+  // their paths list had NO way back to that list without a manual
+  // page refresh — the reveal screen simply had no such button at all.
+  showPathsList();
+});
 
 // Lets someone bounce between the tracker (checklist) and the results
 // screen (covers, reasons, open/buy links) freely, rather than only
