@@ -417,6 +417,11 @@ const translations = {
 };
 
 let currentLang = "en";
+// Tracks the currently-active email-confirmation poller (see the
+// signup form's submit handler) so a repeat signup attempt can clear
+// any previous one first, guaranteeing only one is ever running —
+// see the real bug this fixes in that handler's own comment.
+let activeConfirmationPoll = null;
 function t(key) { return translations[currentLang][key] || translations.en[key]; }
 
 // Walks every element carrying a translation hook and updates its text
@@ -1277,12 +1282,29 @@ emailForm.addEventListener("submit", async (e) => {
     // automatically the moment it's detected, from any device.
     msg.textContent = "Check your email to confirm your account. This page will continue automatically once you do — no need to come back and refresh.";
 
+    // Real bug fixed here: this used to be a purely local variable,
+    // recreated fresh on every signup submission with no reference to
+    // any previous one. Someone who goes through the entire flow again
+    // (new goal, new questions, re-entering the same still-unconfirmed
+    // credentials) — exactly the "repeat from the beginning" scenario
+    // reported — would end up with a SECOND polling loop running
+    // concurrently alongside the first, neither aware of the other.
+    // If confirmation then happened, both could detect it around the
+    // same moment and both call continueAfterConfirmedSignup, racing
+    // each other into duplicate profile upserts and duplicate path
+    // generation. Tracking this at module level, and explicitly
+    // clearing any previous one first, guarantees only one poller is
+    // ever active — a fresh attempt correctly replaces the old one
+    // instead of running alongside it.
+    if (activeConfirmationPoll) clearInterval(activeConfirmationPoll);
+
     let attempts = 0;
     const maxAttempts = 100; // ~100 * 3s = 5 minutes of polling
-    const pollInterval = setInterval(async () => {
+    activeConfirmationPoll = setInterval(async () => {
       attempts++;
       if (attempts > maxAttempts) {
-        clearInterval(pollInterval);
+        clearInterval(activeConfirmationPoll);
+        activeConfirmationPoll = null;
         msg.textContent = "Still waiting on that confirmation — once you've clicked the link in your email, you can also just log in directly from the landing page.";
         return;
       }
@@ -1295,7 +1317,8 @@ emailForm.addEventListener("submit", async (e) => {
       try {
         const { data: signInData, error: signInError } = await sb.auth.signInWithPassword({ email, password });
         if (signInData && signInData.session) {
-          clearInterval(pollInterval);
+          clearInterval(activeConfirmationPoll);
+          activeConfirmationPoll = null;
           msg.textContent = "";
           await continueAfterConfirmedSignup(signInData.user.id);
         }
@@ -2024,8 +2047,10 @@ async function logOut() {
   showScreen("landing");
 }
 
-document.getElementById("logout-button-paths").addEventListener("click", logOut);
-document.getElementById("logout-button-tracker").addEventListener("click", logOut);
+// Redundant "Log out" buttons on the paths/tracker screens were removed
+// — logging out is now handled consistently from the one real place,
+// the top-bar button (which also correctly reflects real auth state,
+// see updateAuthButtonLabel).
 
 // ---------- verse overlay ----------
 const verseOverlay = document.getElementById("verse-overlay");
