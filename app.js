@@ -772,7 +772,7 @@ function safeUrl(url) {
 }
 
 function flagImg(code) {
-  return `<img src="https://flagcdn.com/20x15/${code}.png" alt="" width="20" height="15" style="vertical-align:middle;margin-right:.35rem;border-radius:2px;">`;
+  return `<img src="https://flagcdn.com/20x15/${code}.png" alt="" width="20" height="15" style="vertical-align:middle;margin-inline-end:.35rem;border-radius:2px;">`;
 }
 
 // ---------- screen navigation ----------
