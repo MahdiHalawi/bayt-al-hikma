@@ -735,6 +735,39 @@ const COUNTRIES = ALL_COUNTRIES;
 // guarantees the same visual result everywhere, same reasoning as
 // using real book cover images rather than hoping for consistent emoji
 // rendering.
+// ---------- security: escaping user-controlled and external content ----------
+// Real, confirmed gap found on a security review: several places
+// rendered user-typed text (a person's own learning goal) and
+// external/AI-generated content (book titles, authors, AI-written
+// "reason" text) directly via innerHTML with no escaping at all. A
+// goal typed as something like <img src=x onerror="..."> would
+// genuinely execute as real HTML/JS, not just display as text. Every
+// place that interpolates this kind of content into innerHTML now
+// runs it through this first.
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// URLs go into href/src attributes, not text content — escaping alone
+// doesn't stop a "javascript:" URL from executing when clicked. Only
+// allow genuine http(s) URLs through; anything else (including a
+// malformed or deliberately malicious scheme) is safely dropped.
+function safeUrl(url) {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function flagImg(code) {
   return `<img src="https://flagcdn.com/20x15/${code}.png" alt="" width="20" height="15" style="vertical-align:middle;margin-right:.35rem;border-radius:2px;">`;
 }
@@ -1050,7 +1083,7 @@ function renderPathsList(paths) {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "path-list-item";
-    item.innerHTML = `${p.goal || p.topic}<span class="path-item-topic">${p.topic}</span>`;
+    item.innerHTML = `${escapeHtml(p.goal || p.topic)}<span class="path-item-topic">${escapeHtml(p.topic)}</span>`;
     item.addEventListener("click", async () => {
       state.currentPathId = p.id;
       // Replay the EXACT items originally shown, stored in the `items`
@@ -1855,12 +1888,12 @@ function renderPathGrid() {
       // actually activate it, matching real button behavior.
       card.setAttribute("role", "button");
       card.setAttribute("tabindex", "0");
-      card.setAttribute("aria-label", `${book.title} — ${t("unlockPrompt")}`);
+      card.setAttribute("aria-label", `${escapeHtml(book.title)} — ${t("unlockPrompt")}`);
       card.innerHTML = `
         <div class="locked-content">
           <span class="path-index">${String(i + 1).padStart(2, "0")}</span>
-          <h3>${book.title}</h3>
-          <p>${book.author}</p>
+          <h3>${escapeHtml(book.title)}</h3>
+          <p>${escapeHtml(book.author)}</p>
         </div>
         <div class="lock-overlay">
           <span style="font-size:1.3rem">🔒</span>
@@ -1878,31 +1911,35 @@ function renderPathGrid() {
       let extraLinksHtml = "";
 
       if (!isBook && book.url) {
-        extraLinksHtml = `<a href="${book.url}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("open_link")} ↗</a>`;
+        const safeBookUrl = safeUrl(book.url);
+        if (safeBookUrl) extraLinksHtml = `<a href="${safeBookUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("open_link")} ↗</a>`;
       } else if (isBook) {
         const linkParts = [];
-        if (book.pdfUrl) {
+        const safePdfUrl = safeUrl(book.pdfUrl);
+        if (safePdfUrl) {
           linkParts.push(
-            `<a href="${book.pdfUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;margin-right:1rem;display:inline-block">${t("read_free_link")} ↗</a>`
+            `<a href="${safePdfUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;margin-right:1rem;display:inline-block">${t("read_free_link")} ↗</a>`
           );
         }
         const localStore = findLocalStoreLink(book);
-        if (localStore) {
+        const safeStoreUrl = localStore ? safeUrl(localStore.url) : "";
+        if (localStore && safeStoreUrl) {
           linkParts.push(
-            `<a href="${localStore.url}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("buy_locally_prefix")} ${localStore.storeName} ↗</a>`
+            `<a href="${safeStoreUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;display:inline-block">${t("buy_locally_prefix")} ${escapeHtml(localStore.storeName)} ↗</a>`
           );
         }
         extraLinksHtml = linkParts.join("");
       }
 
-      const coverHtml = book.coverUrl
-        ? `<img src="${book.coverUrl}" alt="Cover of ${book.title}" style="width:48px;height:auto;float:left;margin:0 .6rem .4rem 0;border:1px solid rgba(140,107,36,.4)">`
+      const safeCoverUrl = safeUrl(book.coverUrl);
+      const coverHtml = safeCoverUrl
+        ? `<img src="${safeCoverUrl}" alt="Cover of ${escapeHtml(book.title)}" style="width:48px;height:auto;float:left;margin:0 .6rem .4rem 0;border:1px solid rgba(140,107,36,.4)">`
         : "";
       card.innerHTML = `
         <span class="path-index">${String(i + 1).padStart(2, "0")}</span>
         ${coverHtml}
-        <h3>${book.title}</h3>
-        <p>${book.author} — ${book.reason}</p>
+        <h3>${escapeHtml(book.title)}</h3>
+        <p>${escapeHtml(book.author)} — ${escapeHtml(book.reason)}</p>
         ${extraLinksHtml}`;
     }
     grid.appendChild(card);
@@ -1938,8 +1975,8 @@ function renderTracker() {
     btn.setAttribute("aria-pressed", String(done));
     btn.innerHTML = `
       <span class="tracker-check">${done ? "✓" : ""}</span>
-      <span class="tracker-book">${book.title}</span>
-      <span class="tracker-stage">${book.author}</span>`;
+      <span class="tracker-book">${escapeHtml(book.title)}</span>
+      <span class="tracker-stage">${escapeHtml(book.author)}</span>`;
     btn.addEventListener("click", async () => {
       const isDone = state.completed.has(book.id);
       if (isDone) {
