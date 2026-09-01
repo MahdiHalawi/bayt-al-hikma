@@ -1141,12 +1141,12 @@
   flex: 1 1 260px;
   line-height: 1.5;
 }
-.cookie-banner a { color: var(--light-gold); margin-left: .4rem; white-space: nowrap; }
+.cookie-banner a { color: var(--light-gold); margin-inline-start: .4rem; white-space: nowrap; }
 
 .skip-link {
   position: absolute;
   top: -100px;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 100;
   background: var(--gold);
   color: var(--night);

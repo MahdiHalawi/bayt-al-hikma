@@ -2161,6 +2161,11 @@ async function logOut() {
   state.isPremium = false;
   state.currentPath = [];
   state.currentPathId = null;
+  // Real gap found on review: every other path-related state field gets
+  // reset here, but this one was missed — on a shared device, a stale
+  // "true" from whoever was logged in before could otherwise leak into
+  // a completely different account's next session.
+  state.currentPathUnlockedForever = false;
   state.completed = new Set();
   state.goal = "";
   goalInput.value = "";
