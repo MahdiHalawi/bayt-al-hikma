@@ -1335,29 +1335,35 @@ emailForm.addEventListener("submit", async (e) => {
     }
     return;
   }
-  // Real, confirmed bug fixed here: clicking the email confirmation link
-  // very often opens a genuinely NEW browser tab (standard email-client
-  // behavior), with its own freshly-established session — but that tab
-  // has zero memory of the goal/questionnaire answers entered on the
-  // ORIGINAL tab. restoreSession() would see a valid session there and
-  // just show the (empty, since nothing's been generated in THAT tab)
-  // paths list — looking exactly like "nothing happened," even though
-  // the original tab may have been correctly completing everything the
-  // whole time. Saving the pending goal to localStorage means EITHER
-  // tab — whichever one actually ends up with the confirmed session —
-  // can correctly resume and complete the exact same generation.
+  // Real, confirmed bug fixed here — and fixed PROPERLY this time. The
+  // first attempt used localStorage, reasoning that any tab ending up
+  // with the confirmed session could pick up the pending goal. That
+  // works within the SAME browser, but real-world testing found the
+  // actual common case: email confirmation links are very often opened
+  // inside Gmail/Outlook's own IN-APP browser — a genuinely separate,
+  // sandboxed web view with its OWN isolated storage, sharing nothing
+  // with the real browser where signup happened. localStorage simply
+  // cannot cross that boundary. The real fix: persist the pending goal
+  // SERVER-SIDE, tied to the actual account (using the real user id,
+  // available immediately here even before confirmation) — so it
+  // doesn't matter which browser, app, or device ends up with the
+  // confirmed session; a real database query finds it regardless.
   try {
-    localStorage.setItem("bayt_al_hikma_pending_goal", JSON.stringify({
-      goal: state.goal,
-      level: state.level,
-      levelOther: state.levelOther,
-      format: state.format,
-      timeCommitment: state.timeCommitment,
-      contentType: state.contentType,
-      contentLanguage: state.contentLanguage,
-    }));
+    await sb.from("profiles").upsert({
+      id: data.user.id,
+      is_premium: false,
+      pending_goal: {
+        goal: state.goal,
+        level: state.level,
+        levelOther: state.levelOther,
+        format: state.format,
+        timeCommitment: state.timeCommitment,
+        contentType: state.contentType,
+        contentLanguage: state.contentLanguage,
+      },
+    });
   } catch (err) {
-    console.warn("Could not save pending goal to localStorage:", err);
+    console.warn("Could not save pending goal:", err);
   }
 
   if (!data.session) {
@@ -1435,16 +1441,13 @@ async function continueAfterConfirmedSignup(userId) {
   state.userId = userId;
   updateAuthButtonLabel();
   trackFunnelEvent("signup_completed");
-  // The safety net (see the localStorage save at signup submission) is
-  // no longer needed once we've genuinely reached this point — clear it
-  // so a SECOND tab (someone clicking the same email link twice, say)
-  // doesn't redundantly try to auto-resume and generate a duplicate path.
+  // Every new real account gets a matching row in our own profiles
+  // table. pending_goal is explicitly cleared here too — the safety net
+  // is no longer needed once we've genuinely reached this point, and
+  // clearing it stops a second confirmation attempt (someone tapping
+  // the same email link twice, say) from redundantly re-triggering it.
   try {
-    localStorage.removeItem("bayt_al_hikma_pending_goal");
-  } catch (err) {}
-  // Every new real account gets a matching row in our own profiles table.
-  try {
-    await sb.from("profiles").upsert({ id: userId, is_premium: false });
+    await sb.from("profiles").upsert({ id: userId, is_premium: false, pending_goal: null });
   } catch (err) {
     console.error("Could not create profile row:", err);
   }
@@ -2453,29 +2456,21 @@ if (window.lucide) lucide.createIcons();
 
     const { data: profile } = await sb
       .from("profiles")
-      .select("is_premium")
+      .select("is_premium, pending_goal")
       .eq("id", session.user.id)
       .single();
     state.isPremium = profile ? profile.is_premium : false;
     celebrateIfNewlyPremium(state.isPremium);
 
-    // The actual fix for the real reported bug: a genuinely pending goal
-    // (saved at signup submission, only ever cleared once the flow truly
-    // completes) means this valid session's tab is likely the NEW one
-    // opened by clicking the email confirmation link, not the original
-    // tab the goal/questionnaire were entered on. Restore that state and
-    // complete the flow HERE instead of showing what would otherwise be
-    // a confusing, empty paths list. The zero-existing-paths check
-    // guards against stale localStorage from a genuinely abandoned,
-    // much-earlier attempt incorrectly triggering this for an unrelated
-    // later visit.
-    let pendingGoal = null;
-    try {
-      const raw = localStorage.getItem("bayt_al_hikma_pending_goal");
-      if (raw) pendingGoal = JSON.parse(raw);
-    } catch (err) {
-      console.warn("Could not read pending goal from localStorage:", err);
-    }
+    // The real fix for the reported bug, done properly this time — see
+    // the full reasoning where pending_goal gets saved, at signup
+    // submission. A genuinely pending goal here means this session's
+    // browser/app never actually completed the flow itself (it's
+    // reading this from the database, not a local storage that could
+    // fail to carry over between different browsers/apps). The
+    // zero-existing-paths check guards against a stale, long-abandoned
+    // attempt incorrectly hijacking an unrelated later, normal visit.
+    const pendingGoal = profile ? profile.pending_goal : null;
 
     if (pendingGoal) {
       const { count } = await sb.from("paths").select("id", { count: "exact", head: true }).eq("user_id", session.user.id);
@@ -2488,19 +2483,24 @@ if (window.lucide) lucide.createIcons();
         state.contentType = pendingGoal.contentType;
         state.contentLanguage = pendingGoal.contentLanguage;
         try {
-          localStorage.removeItem("bayt_al_hikma_pending_goal");
-        } catch (err) {}
+          await sb.from("profiles").update({ pending_goal: null }).eq("id", session.user.id);
+        } catch (err) {
+          console.warn("Could not clear pending goal:", err);
+        }
         showScreen("seeking");
         startSeekingDelay();
         return;
       }
-      // A path already exists despite a pending flag still sitting in
-      // localStorage — the flow genuinely already completed (likely on
-      // the original tab) and the clear step simply hasn't reached this
-      // tab. Clear it here too rather than leave it lingering.
+      // A path already exists despite a pending_goal flag still sitting
+      // in the database — the flow genuinely already completed
+      // elsewhere and the clear step simply hasn't reached this
+      // account's row yet. Clear it here too rather than leave it
+      // lingering indefinitely.
       try {
-        localStorage.removeItem("bayt_al_hikma_pending_goal");
-      } catch (err) {}
+        await sb.from("profiles").update({ pending_goal: null }).eq("id", session.user.id);
+      } catch (err) {
+        console.warn("Could not clear stale pending goal:", err);
+      }
     }
 
     // Same destination as a manual login — their real saved paths list,
