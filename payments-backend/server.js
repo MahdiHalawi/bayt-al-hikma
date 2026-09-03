@@ -27,6 +27,7 @@ const { searchContent } = require("./contentSearchService");
 const { searchVideos } = require("./videoSearchService");
 const { verifyPaddleSignature, resolvePremiumAction } = require("./paddleWebhookService");
 const { verifyRequestAuth } = require("./authHelper");
+const { validatePendingGoalRequest } = require("./pendingGoalService");
 const { hasReachedFreePathLimit } = require("./pathLimitService");
 
 // Both of these are made OPTIONAL on purpose — if you haven't decided on
@@ -198,6 +199,55 @@ const sequenceLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests — please slow down and try again shortly." },
+});
+
+const pendingGoalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests — please slow down and try again shortly." },
+});
+
+// Saves the pending goal (what someone was in the middle of generating
+// right when they signed up) so ANY device/browser that later gets
+// their confirmed session — including an email app's own in-app
+// browser, which shares nothing with the original browser — can
+// correctly resume it. This specifically has to go through the
+// backend: at the moment this needs saving, there's no session yet
+// (signUp() with email confirmation pending returns session: null),
+// so RLS's own "auth.uid() = id" policy has nothing to match and
+// silently blocks a direct client-side write. sbAdmin here uses the
+// service role, which legitimately bypasses RLS for this one, narrow,
+// pre-authenticated purpose.
+//
+// SECURITY NOTE, stated honestly: without a session to verify, this
+// can't confirm the caller truly owns userId the way sequence-path
+// does. Real, deliberate tradeoff: the worst a malicious call here
+// could do is overwrite a stranger's pending_goal with junk, which
+// only affects what auto-resumes for THEIR very first, still-empty
+// path — no access to existing data, no account takeover, no payment
+// impact. Rate-limited the same as the other public endpoint.
+app.post("/api/save-pending-goal", pendingGoalLimiter, async (req, res) => {
+  const validation = validatePendingGoalRequest(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({ error: validation.error });
+  }
+  const { userId, pendingGoal } = req.body;
+  if (!sbAdmin) {
+    return res.status(503).json({ error: "Service temporarily unavailable" });
+  }
+  try {
+    const { error } = await sbAdmin.from("profiles").upsert({ id: userId, is_premium: false, pending_goal: pendingGoal });
+    if (error) {
+      console.error("Could not save pending goal:", error.message);
+      return res.status(500).json({ error: "Could not save pending goal" });
+    }
+    res.json({ saved: true });
+  } catch (err) {
+    console.error("Could not save pending goal:", err);
+    res.status(500).json({ error: "Could not save pending goal" });
+  }
 });
 
 // Takes the REAL items the frontend already fetched from Open Library /

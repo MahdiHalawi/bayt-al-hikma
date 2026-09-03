@@ -1335,32 +1335,36 @@ emailForm.addEventListener("submit", async (e) => {
     }
     return;
   }
-  // Real, confirmed bug fixed here — and fixed PROPERLY this time. The
-  // first attempt used localStorage, reasoning that any tab ending up
-  // with the confirmed session could pick up the pending goal. That
-  // works within the SAME browser, but real-world testing found the
-  // actual common case: email confirmation links are very often opened
-  // inside Gmail/Outlook's own IN-APP browser — a genuinely separate,
-  // sandboxed web view with its OWN isolated storage, sharing nothing
-  // with the real browser where signup happened. localStorage simply
-  // cannot cross that boundary. The real fix: persist the pending goal
-  // SERVER-SIDE, tied to the actual account (using the real user id,
-  // available immediately here even before confirmation) — so it
-  // doesn't matter which browser, app, or device ends up with the
-  // confirmed session; a real database query finds it regardless.
+  // Real, confirmed bug fixed here — and fixed PROPERLY this time. Two
+  // real attempts came before this one: localStorage (fails across the
+  // in-app-browser boundary, see below), then a direct client-side
+  // database write (silently blocked by RLS's "auth.uid() = id" policy
+  // — at THIS exact moment, right after signUp() with confirmation
+  // still pending, there's genuinely no active session yet for that
+  // policy to match against). This goes through the backend instead,
+  // using the service role to legitimately bypass RLS for this one,
+  // narrow, pre-authentication purpose — see save-pending-goal in
+  // server.js for the full reasoning, including the honest security
+  // tradeoff of not being able to verify a session that doesn't exist
+  // yet. Server-side (not localStorage) still matters: it's what lets
+  // this survive the email-app in-app-browser boundary, where nothing
+  // client-side is shared with the original browser.
   try {
-    await sb.from("profiles").upsert({
-      id: data.user.id,
-      is_premium: false,
-      pending_goal: {
-        goal: state.goal,
-        level: state.level,
-        levelOther: state.levelOther,
-        format: state.format,
-        timeCommitment: state.timeCommitment,
-        contentType: state.contentType,
-        contentLanguage: state.contentLanguage,
-      },
+    await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/save-pending-goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: data.user.id,
+        pendingGoal: {
+          goal: state.goal,
+          level: state.level,
+          levelOther: state.levelOther,
+          format: state.format,
+          timeCommitment: state.timeCommitment,
+          contentType: state.contentType,
+          contentLanguage: state.contentLanguage,
+        },
+      }),
     });
   } catch (err) {
     console.warn("Could not save pending goal:", err);

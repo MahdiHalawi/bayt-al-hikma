@@ -137,7 +137,7 @@
       background: var(--night);
       border: 1px solid transparent;
       transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease;
-      z-index: 20;
+      z-index: 70; /* raised to match verse-overlay fix — stays above the cookie banner (z-index:60) consistently */
     }
     /* The site-wide .hidden class uses display:none, which can't be
        smoothly animated — an element just pops instantly rather than
@@ -903,7 +903,14 @@
     }
 
     .verse-overlay {
-      position: fixed; z-index: 20; inset: 0;
+      /* Real, confirmed bug: this used z-index:20, while the cookie
+         banner uses z-index:60 — meaning the cookie banner always
+         rendered ON TOP of an actively-open modal dialog (this exact
+         overlay is used for the secret message, the upgrade prompt,
+         and password reset), visually cutting into and interrupting
+         it. An active modal the user is directly engaged with should
+         always take priority over a passive, dismissible notice. */
+      position: fixed; z-index: 70; inset: 0;
       padding: 1.2rem;
       display: grid; place-items: center;
       background: rgba(4,10,31,.78);
@@ -971,7 +978,7 @@
       background: var(--night);
       text-align: left;
       transition: max-height .3s ease, width .3s ease, opacity .25s ease, border-color .25s ease;
-      z-index: 20;
+      z-index: 70; /* raised to match verse-overlay fix — stays above the cookie banner (z-index:60) consistently */
     }
     .auth-panel.hidden {
       display: block !important;
@@ -993,7 +1000,7 @@
       box-shadow: 6px 6px 0 rgba(0,0,0,.2);
       margin-top: 6px;
       padding: 1rem;
-      z-index: 20;
+      z-index: 70; /* raised to match verse-overlay fix — stays above the cookie banner (z-index:60) consistently */
     }
     .auth-panel-title { font: 700 .78rem "Work Sans", sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--light-gold); margin: 0 0 .7rem; }
     /* This one is nested INSIDE the already-floating returning-panel
