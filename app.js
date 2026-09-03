@@ -2492,6 +2492,14 @@ if (window.lucide) lucide.createIcons();
           console.warn("Could not clear pending goal:", err);
         }
         showScreen("seeking");
+        // Real bug fixed here: this auto-resume path calls
+        // startSeekingDelay() directly, bypassing
+        // continueAfterConfirmedSignup — which is where the signup
+        // form normally gets hidden. Without this, the form stayed
+        // visibly overlaid on top of the seeking screen the whole
+        // time, even though generation was genuinely running
+        // correctly underneath it.
+        emailForm.classList.add("hidden");
         startSeekingDelay();
         return;
       }
