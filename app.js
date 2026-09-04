@@ -12,12 +12,27 @@
 // existed — every mobile screen was silently falling back to plain
 // `1vh`, exactly reproducing the bug it was meant to prevent.
 function setRealViewportHeight() {
-  const vh = window.innerHeight * 0.01;
+  const realHeight = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const vh = realHeight * 0.01;
   document.documentElement.style.setProperty("--vh", `${vh}px`);
 }
 setRealViewportHeight();
 window.addEventListener("resize", setRealViewportHeight);
 window.addEventListener("orientationchange", setRealViewportHeight);
+// Real gap found on review: plain window.resize is genuinely
+// inconsistent across iOS Safari versions specifically for the
+// scroll-triggered address-bar-collapse case (confirmed — some
+// versions fire it reliably, others historically haven't) — matching
+// the exact reported symptom: content cut off initially, only
+// correcting itself after scrolling. window.visualViewport is the
+// modern, purpose-built API for tracking the actual visible viewport
+// through exactly this kind of change, and is used here as a more
+// reliable addition, not a replacement (falls back gracefully to the
+// resize/orientationchange listeners alone on any browser where it's
+// unavailable).
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", setRealViewportHeight);
+}
 
 // ---------- book catalog (demo data — see README for growing this for real) ----------
 const CATALOG = {
@@ -1285,6 +1300,11 @@ document.getElementById("continue-button").addEventListener("click", async () =>
     document.getElementById("seeking-status").textContent = "";
     document.getElementById("searching-dots").classList.add("hidden");
     document.getElementById("secret-message-btn").classList.add("hidden");
+    // Real bug fixed here: this branch never reset the rotation-pause
+    // state the way startSeekingDelay() does — so if it was left paused
+    // from any earlier interaction, the hoopoe looked frozen right from
+    // the very start, before generation had even begun.
+    document.querySelector(".seeking-bird-wrap").classList.remove("loading-complete");
     document.getElementById("email-form").classList.remove("hidden");
   }
 });
