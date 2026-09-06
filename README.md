@@ -1,261 +1,111 @@
-# Bayt Al-Hikma — v2 (your design, wired with the discussed features)
+# Bayt Al-Hikma (بيت الحكمة) — House of Wisdom
 
-Your visual design is kept as-is — the astrolabe, medallion, manuscript framing, all of it untouched. This adds: theme + language switching, the free/premium locked-path behavior, a demo signup/login flow, and a real (optional) Stripe payment integration.
+A real, live, AI-powered personalized learning platform. Someone describes what they want to learn, and the site generates a real, sequenced learning path — actual books, videos, articles, and courses, in a genuine beginner-to-mastery order. Every recommendation is grounded against real search results (Open Library, YouTube, live web search) — nothing is invented or hallucinated by the AI.
 
-## What changed from the file you sent
+**Live at:** [baytalhikmaa.com](https://baytalhikmaa.com)
+**Backend:** `https://bayt-al-hikma.onrender.com`
 
-- **Removed Canva-specific scripts** (`__codeletBootstrap__`, the `/_sdk/*.js` telemetry/editing scripts) — these only work inside Canva's own editor and would either 404 or do nothing on a real host.
-- **Replaced `canva://...` image sources** with local file paths (`assets/hoopoe/...`). Canva's internal image references don't resolve outside Canva — see "Missing images" below.
-- **Added:** a password field on the signup step, a "Been here before? Log in" link + demo login panel, a free/premium plan badge, locked path cards (steps 2+ blurred with a lock, matching the earlier design decision), an upgrade/payment modal, and a real (optional) Stripe backend.
-- Everything else — layout, animation, copy, structure — is exactly what you sent.
+This is not a demo or prototype — real accounts, real payments, and real users are live on this right now.
 
-## Missing images (action needed)
+## Real, current status
 
-Only `guiding.png` and `presenting.png` are included in `assets/hoopoe/` — these are the corrected versions (black crest tips removed) from earlier in this project. **`welcome.png`, `seeking.png`, and `rest.png` are not included** because I never received local copies of those specific files to place here. Add your approved versions of those three into `assets/hoopoe/` with those exact filenames, or the corresponding images on the page will simply appear broken.
+- ✅ Real accounts (Supabase Auth), with email confirmation and password reset fully working
+- ✅ Real payments (Paddle, Live mode) — Stripe is not used; Paddle was chosen since Stripe doesn't support Lebanon
+- ✅ Real security review completed: XSS escaping on all user/external content, Row Level Security verified on every table, rate limiting on cost-incurring endpoints
+- ✅ Multi-language: English, Arabic (full RTL support), French
+- ✅ Country-specific pricing (accessible tier for Lebanon, Jordan, Egypt, Iraq, Tunisia, Morocco)
+- ✅ Legal pages live: Privacy Policy, Terms of Service, 14-day Refund Policy, standalone Pricing page
+- ✅ Real analytics (Umami) and error monitoring (Sentry) live in production
+- ✅ Extensive automated test coverage: 78 backend tests, 14+ frontend test files
 
-## Running it
+## How the core product actually works
 
-Plain static files, no build step:
-```bash
-python3 -m http.server 8000
-```
-Open `http://localhost:8000`. (A normal file double-click will mostly work too, but form/JS behavior is more reliable over a real local server.)
+1. Someone types a real goal ("I want to understand philosophy")
+2. A short questionnaire captures level, format preference (books/videos/articles/courses/mix), time commitment, and content language
+3. The backend fetches REAL live results (Open Library for books, YouTube for videos, live web search for articles/courses)
+4. Those real, already-fetched items are sent to Claude, which selects and sequences them into a genuine progression — it never invents new items, only orders and selects from what was actually found
+5. The path is saved to the user's account
 
-## How each requested feature works
+**Free tier**: one path per account, first 2 steps unlocked, rest locked.
+**Premium**: unlimited paths, full content unlocked, progress tracker.
 
-**Free/Premium locking** — `state.isPremium` (in `app.js`) controls this. When false, only the first path card renders fully; the rest render blurred with a lock overlay and open the upgrade modal on click. This mirrors the exact locked-steps design agreed on earlier.
+**A real, deliberate business rule**: once a path's content is genuinely unlocked while Premium, it stays unlocked forever, even if the subscription later lapses — matching how a one-time purchase works. Tracker access, however, specifically requires an *active* subscription regardless of any path's unlock history — an ongoing tool needs an ongoing subscription, unlike content already paid for and received.
 
-**Signup/login** — both the seeking-screen signup form and the landing-page "log in" panel are **demo-only**: they check that the fields look filled in, not against any real account database. Wiring real accounts means adding Supabase Auth or Firebase Auth (as discussed) — neither is wired in here yet.
+## Real accounts — Supabase Auth
 
-**Payment — this is the one piece that's genuinely real, not just simulated:**
-- `payments-backend/server.js` is a small, real Express + Stripe server.
-- Clicking "Upgrade to Premium" first tries calling that backend (`http://localhost:4242/api/create-checkout-session`). If it's running and configured with real Stripe keys, **you get redirected to an actual Stripe Checkout page** — a real payment flow.
-- If that backend isn't running (e.g. you're just reviewing the UI), it falls back to a demo unlock after a short delay, purely so the flow can be clicked through end to end. This fallback branch is explicitly marked in the code as something that must not exist in a real production build.
-- **The most important architectural point, worth understanding even if you don't touch payments yet:** a user should only ever be marked "premium" from the Stripe **webhook** handler (`/webhook` in `server.js`), after Stripe itself confirms payment succeeded — never immediately after a checkout redirect, and never from browser-side code. The comments in both files walk through exactly why.
+Signup, login, premium status, and progress tracking are fully real, backed by Supabase, with Row Level Security enforced on every table so a user can only ever access their own data (verified directly, not just assumed).
 
-### To actually run the payments backend
+**A genuinely important, real bug this project hit and fixed**: email confirmation links are very often opened inside an email app's own in-app browser (Gmail, Outlook), which is a completely separate, sandboxed browser context sharing nothing with the original browser — not even localStorage. The fix: the pending goal (what someone was mid-generating at signup) is saved server-side via a dedicated backend endpoint using the service-role key (bypassing Row Level Security for this one, narrow, pre-authentication purpose — there's no active session yet at that exact moment for RLS to check against). This means whichever browser or app ends up with the confirmed session — not just the original one — can correctly resume and complete the flow. See `pendingGoalService.js` and the `save-pending-goal` endpoint in `server.js` for the full implementation and reasoning.
 
-## Paddle — the real payment provider (Stripe doesn't support Lebanon)
+Custom SMTP (Brevo) is fully configured and verified working for both email confirmation and password reset — sent from `account@baytalhikmaa.com`, not Supabase's rate-limited default address.
 
-The Stripe code above is kept as a working reference architecture, but
-**Paddle is the actual provider this project uses**, since Stripe isn't
-available in Lebanon. Same core principle as Stripe: a user is only ever
-marked premium from a **verified webhook**, never from the frontend.
+## Real payments — Paddle (Live mode)
 
-**Setup:**
-1. Create a Product + a recurring Price in your Paddle dashboard (Sandbox
-   first — always test there before Live).
-2. Get your **API Key** and **Client-side token** from Developer Tools →
-   Authentication.
-3. Set up a webhook: Developer Tools → Notifications → New destination →
-   point it at `https://your-backend-url/webhook-paddle`, subscribe to
-   at least `transaction.completed`, then copy the **Secret key** shown
-   after saving.
-4. In `payments-backend/.env`, add `PADDLE_WEBHOOK_SECRET`.
-5. In `paddle-config.js` (frontend), paste your real `PADDLE_CLIENT_TOKEN`
-   and `PADDLE_PRICE_ID`. Leave `PADDLE_ENVIRONMENT` as `"sandbox"` until
-   you've fully tested a real purchase end to end.
+Stripe is kept nowhere in this codebase — Paddle is the actual, sole payment provider, chosen specifically because Stripe doesn't support Lebanon.
 
-**How it actually works:** clicking "Upgrade to Premium" opens Paddle's
-real checkout widget directly in the browser (via `Paddle.Checkout.open`),
-tagging the purchase with the logged-in user's real id via `customData`.
-When Paddle confirms the payment, it calls `/webhook-paddle` — the
-signature is verified (HMAC-SHA256, Paddle Billing's real scheme — see
-`paddleWebhookService.js` for the exact algorithm and why it's
-implemented this specific way), and only then is the user marked
-premium in Supabase. The browser-side `checkout.completed` event is
-used only to show a "confirming your account..." message and briefly
-poll for that real update — it never sets premium status itself.
+**How it actually works**: clicking "Upgrade to Premium" opens Paddle's real checkout widget directly in the browser, tagging the purchase with the logged-in user's real id via `customData`. When Paddle confirms payment, it calls `/webhook-paddle` — the signature is verified (HMAC-SHA256, Paddle Billing's real scheme), and only then is the user marked premium in Supabase. The browser-side `checkout.completed` event only shows a "confirming your account..." message and briefly polls for that real update — it never sets premium status itself.
 
-If Paddle isn't configured yet (still testing locally), this falls back
-to the same demo unlock as before.
+**A real, serious bug this caught and fixed**: the webhook originally only listened for `transaction.completed`, but Paddle's own documentation recommends granting access on `subscription.created` for a recurring subscription product — and that's genuinely what Paddle sends. The old code silently did nothing on real payments while still replying "OK" to Paddle, meaning a real customer paid and received nothing. Confirmed and fixed — see `paddleWebhookService.js`'s `resolvePremiumAction`.
 
-Test the signature verification logic itself, with real computed HMAC
-test vectors, no live Paddle account needed:
+Country-specific pricing ($2.99/month for Lebanon, Jordan, Egypt, Iraq, Tunisia, Morocco; $4.99/month elsewhere) is configured directly in Paddle's dashboard, detected automatically at checkout.
+
+Test the webhook signature verification and event-resolution logic directly, no live Paddle account needed:
 ```bash
 cd payments-backend
 node --test test/paddleWebhookService.test.js
+node --test test/resolvePremiumAction.test.js
 ```
 
-### To actually run the payments backend
+## Free-tier enforcement — a real bug worth knowing about
+
+The free-path-limit (one path per free account) is enforced **on the backend**, not just the frontend — a frontend-only check is really just a suggestion, trivially bypassed by a browser back button, a fresh tab, or calling the endpoint directly, and every bypass burns a real, paid Anthropic API call regardless. See `pathLimitService.js` for the authoritative, tested enforcement.
+
+A related real bug: the frontend originally treated a legitimate 403 "you've reached your limit" rejection identically to a generic network failure, silently falling back to generating a path anyway — completely bypassing the backend's correct rejection. Fixed by having the frontend specifically recognize and respect that rejection code (`FREE_PATH_LIMIT_REACHED`) rather than degrading past it.
+
+## Security
+
+- **XSS**: all user-typed and external/AI-generated content (goals, book titles, authors, AI-written descriptions) is HTML-escaped before rendering; URLs going into `href`/`src` attributes are validated as genuine `http(s)` links or dropped.
+- **Row Level Security**: enabled and verified on `profiles`, `paths`, and `progress` — confirmed directly by querying as a real user and checking only their own data returns, not just trusting policy names.
+- **Rate limiting**: on `/api/sequence-path` (10/min) and `/api/save-pending-goal` (10/min), since both can be called by an unauthenticated or minimally-authenticated client.
+- **Auth-protected AI endpoint**: `/api/sequence-path` requires a genuine, currently-valid Supabase session token — no session, no AI call, no cost.
+
+## Video search, AI sequencing, articles/courses
+
+Same real-content grounding throughout — books (Open Library, no key needed), videos (YouTube, key lives only in the backend `.env`, never in any frontend file), and articles/courses (live web search) are all fetched for real before Claude ever sees them, and Claude only selects and sequences from what was actually found.
+
+## RTL and multi-language — real, hard-won lessons
+
+Arabic support is genuine, not just translated strings — full `dir="rtl"` layout switching. A real, repeated class of bug during development: physical CSS properties (`left`, `right`, `margin-left`) don't automatically flip for RTL, since they mean the same physical side regardless of text direction. Fixed by converting to logical properties (`inset-inline-start`, `margin-inline-end`) wherever this mattered — confirmed with real rendered tests in both directions, not just assumed correct.
+
+## Running it locally
+
+```bash
+python3 -m http.server 8000
+```
+Open `http://localhost:8000`.
+
 ```bash
 cd payments-backend
-npm install express stripe dotenv cors express-rate-limit @supabase/supabase-js
+npm install
 cp .env.example .env
-# fill in real Stripe TEST keys — https://dashboard.stripe.com/test/apikeys
-# create a Product + recurring Price in the Stripe dashboard, paste its id in too
+# fill in real Supabase, Paddle, Anthropic, and YouTube keys
 node server.js
 ```
-Use the [Stripe CLI](https://stripe.com/docs/stripe-cli) (`stripe listen --forward-to localhost:4242/webhook`) to test the webhook locally — Stripe won't reach `localhost` directly from the internet.
 
-## Setting up real accounts + database (Supabase)
+## Testing
 
-Signup, login, premium status, and tracker progress are now REAL — backed
-by your own Supabase project, not just in-memory demo state.
-
-1. Create a free project at supabase.com.
-2. In the SQL Editor, run the table + Row Level Security setup (ask me
-   again if you need this SQL re-shown — it creates `profiles` and
-   `progress` tables with policies so users can only ever access their
-   own rows).
-3. Go to Project Settings → API, copy your **Project URL** and **anon
-   public key**, and paste them into `supabase-config.js`.
-4. **For easier testing:** in Authentication → Providers → Email, turn
-   OFF "Confirm email" — otherwise every signup requires clicking a
-   confirmation link before they can log in.
-5. In `payments-backend/.env`, also fill in `SUPABASE_URL` and
-   `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API — this is the
-   SECRET key, different from the anon key above, and must never appear
-   in any frontend file).
-
-With both pieces configured: signup creates a real account, login reads
-your real saved premium status and progress, tracker toggles persist to
-the database, and a real Stripe payment (via the backend) marks the
-correct user premium through the webhook — not from the browser.
-
-### Full SQL migration history (run these in order, in the SQL Editor)
-
-If you're setting this up from scratch, run all of these once, in order:
-
-```sql
--- Core tables + Row Level Security
-create table profiles (
-  id uuid references auth.users on delete cascade primary key,
-  is_premium boolean default false
-);
-
-create table progress (
-  user_id uuid references auth.users on delete cascade,
-  book_id text not null,
-  done boolean default true
-);
-
-alter table profiles enable row level security;
-alter table progress enable row level security;
-
-create policy "Users can view their own profile"
-  on profiles for select using (auth.uid() = id);
-create policy "Users can update their own profile"
-  on profiles for update using (auth.uid() = id);
-create policy "Users can insert their own profile"
-  on profiles for insert with check (auth.uid() = id);
-create policy "Users can manage their own progress"
-  on progress for all using (auth.uid() = user_id);
-
--- Multiple saved paths per user
-create table paths (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users on delete cascade,
-  goal text,
-  topic text,
-  created_at timestamptz default now()
-);
-alter table paths enable row level security;
-create policy "Users can manage their own paths"
-  on paths for all using (auth.uid() = user_id);
-
--- Tie progress to a specific path (not just a user), and fix the
--- primary key so the same book id can be tracked separately per path
-alter table progress add column path_id uuid references paths(id) on delete cascade;
-delete from progress where path_id is null;
-alter table progress drop constraint progress_pkey;
-alter table progress add primary key (user_id, book_id, path_id);
-
--- Multi-format questionnaire (books/articles/videos/courses + language)
-alter table paths add column content_type text default 'mix';
-alter table paths add column content_language text default 'any';
-
--- Store the ACTUAL chosen items per path, so reopening a path replays
--- exactly what was shown instead of re-running a live search
-alter table paths add column items jsonb;
-```
-
-## Video search — backend-only, no key in any frontend file
-
-Unlike books (Open Library, no key needed at all), YouTube search
-requires a real API key. This key lives **only** in
-`payments-backend/.env` as `YOUTUBE_API_KEY` — the frontend calls our
-own `/api/search-videos` endpoint, same auth-protected pattern as
-sequencing/content search, and the actual YouTube call happens
-server-side. No YouTube key exists in any frontend file, ever — same
-secret-handling standard as Anthropic and Stripe.
-
-## AI sequencing — real beginner-to-mastery paths
-
-Books/videos are fetched live (Open Library / YouTube), then sent to
-`payments-backend`'s `/api/sequence-path` endpoint, which asks Claude to
-select and SEQUENCE a genuine progression from those real, already-fetched
-items based on the person's level — never inventing new items, same
-grounding technique as the standalone `curriculum-ai` project.
-
-**Setup:** add to `payments-backend/.env`:
-```
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-sonnet-5
-```
-No extra npm install needed — it uses the same built-in `fetch` Node
-already has, same as the rest of the backend.
-
-**If this backend isn't running**, the app falls back to the raw,
-unsequenced live search results automatically — same fallback philosophy
-as the payment checkout flow. Test the grounding logic itself (no API key
-needed) with:
 ```bash
 cd payments-backend
-node --test test/sequenceService.test.js
+node --test test/*.test.js
 ```
 
-## Analytics + error monitoring
+78 tests, covering auth, rate limiting, webhook signature verification and event resolution, the free-path-limit enforcement, content search grounding, sequencing, and the pending-goal cross-browser fix.
 
-**Umami** (analytics) — cookieless, no personal data, no consent-banner
-interaction needed. Sign up free at umami.is → Settings → Websites →
-Add Website → copy the tracking code's `data-website-id` into
-`index.html`'s Umami script tag.
+Frontend tests (jsdom-based, simulating real user flows including signup, cross-device/cross-browser confirmation, XSS payloads, and the permanent-unlock logic) live alongside the project and are run individually with `node <test-file>.js`.
 
-**Sentry** (error monitoring) — catches real errors on real users'
-devices automatically, frontend and backend.
-- Frontend: sentry.io → Settings → Projects → SDK Setup → Loader Script
-  → copy the key into `index.html`'s Sentry script tag.
-- Backend: same project settings → Client Keys (DSN) → add to
-  `payments-backend/.env` as `SENTRY_DSN`.
+## Known, genuinely open items (not oversights — real, current status)
 
-Both are optional — leaving either as a placeholder doesn't break
-anything, it just means that specific monitoring is off.
-
-## Backend security — auth + rate limiting on `/api/sequence-path`
-
-Since this endpoint costs real Anthropic billing per call, it now
-requires a genuine, currently-valid Supabase session token — anyone
-without one gets a `401`, before any AI call happens. The frontend
-attaches this automatically (via `sb.auth.getSession()`); nothing to
-configure. A rate limiter (10 requests/minute) sits on top as a second
-layer, protecting against a single compromised or overly-eager account,
-not just unauthenticated abuse.
-
-Test the auth logic itself, with no real Supabase project needed:
-```bash
-cd payments-backend
-node --test test/authHelper.test.js
-```
-
-## Still not done (by design, not oversight)
-
-- **Custom email sending (deferred for now).** Password reset emails currently
-  send from Supabase's default address (`noreply@mail.app.supabase.io`), which
-  is rate-limited to a handful of emails/hour and — important — will ONLY
-  deliver to email addresses that are actual members of your Supabase
-  organization's team. To send from a real address like
-  `no-reply@baytalhikma.com` with no such restrictions, set up Custom SMTP:
-  **Authentication → Emails → SMTP Settings** in the Supabase dashboard,
-  using a real email provider (Resend or Brevo both have workable free
-  tiers and are officially supported). Not done yet — revisit before any
-  real users rely on password reset.
-- The real Stripe payment flow is built and wired to the webhook, but has
-  only been tested via the demo fallback — a real live Checkout completion
-  hasn't been tested end to end yet.
-- The 3 missing hoopoe images noted above
-- Growing the book catalog beyond the small hardcoded sample
-- Articles and courses still come from the small static demo catalog —
-  no live API integration for these two yet (see earlier discussion on
-  why these are harder: no clean "search everything" API exists for
-  either, unlike Open Library/YouTube)
+- Trademark question on the name "Bayt Al-Hikma" — real conflicts found (a Tunisian research institution, an Iraqi academic institution, a UK publisher), sent to a lawyer, unresolved
+- Business registration — deliberately deferred; operating as an individual for now, revisit if the product gains real traction
+- Two of four planned social post templates (testimonial, educational) still need final real content in some cases
+- Book/article/course catalog coverage for less common topics can still fall back to a generic, less-tailored result — the site now honestly tells the user when this happens, rather than presenting a mismatched path silently
