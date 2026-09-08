@@ -832,12 +832,23 @@ function closeLanguageList() {
   languageCurrent.setAttribute("aria-expanded", "false");
 }
 
-languageList.querySelectorAll("li").forEach((li) => {
-  li.addEventListener("click", () => {
-    applyLang(li.dataset.lang);
-    closeLanguageList();
+// Real production error caught here (via Sentry): languageList was null
+// for a real user, throwing an uncaught error that would have halted
+// the ENTIRE REST of this script from ever running — everything below
+// this point, which is most of the app's actual functionality. Likely
+// cause: a stale cached copy of index.html (from before this dropdown
+// existed) paired with a freshly-loaded, newer app.js expecting it —
+// see the cache-busting recommendation this points to as the deeper,
+// preventative fix. This guard is the immediate, defensive stop-gap:
+// one missing element should never be able to break everything else.
+if (languageList) {
+  languageList.querySelectorAll("li").forEach((li) => {
+    li.addEventListener("click", () => {
+      applyLang(li.dataset.lang);
+      closeLanguageList();
+    });
   });
-});
+}
 
 languageCurrent.addEventListener("click", () => {
   languageDropdown.classList.contains("hidden") ? openLanguageList() : closeLanguageList();
