@@ -134,6 +134,10 @@ const translations = {
     privacy_link_text: "Privacy Policy",
     agree_terms_required: "Please agree to the Terms of Service and Privacy Policy to continue.",
     logout_button: "Log out",
+    account_panel_title: "Your account",
+    manage_subscription: "Manage subscription",
+    manage_subscription_loading: "Opening your subscription...",
+    manage_subscription_error: "Could not open your subscription right now. Please try again shortly.",
     expand_scroll: "Expand my scroll",
     seekingStatus1: "Following the traces between shelves...",
     seekingStatus2: "The hoopoe has prepared something. Check your message.",
@@ -257,6 +261,10 @@ const translations = {
     privacy_link_text: "سياسة الخصوصية",
     agree_terms_required: "يرجى الموافقة على شروط الخدمة وسياسة الخصوصية للمتابعة.",
     logout_button: "تسجيل الخروج",
+    account_panel_title: "حسابك",
+    manage_subscription: "إدارة الاشتراك",
+    manage_subscription_loading: "جارٍ فتح اشتراكك...",
+    manage_subscription_error: "تعذّر فتح اشتراكك الآن. يرجى المحاولة مجدداً بعد قليل.",
     expand_scroll: "وسّع مخطوطتي",
     seekingStatus1: "يتبع الأثر بين الرفوف...",
     seekingStatus2: "الهدهد أعدّ شيئاً. تفقّد رسالتك.",
@@ -380,6 +388,10 @@ const translations = {
     privacy_link_text: "Politique de confidentialité",
     agree_terms_required: "Veuillez accepter les Conditions d'utilisation et la Politique de confidentialité pour continuer.",
     logout_button: "Se déconnecter",
+    account_panel_title: "Votre compte",
+    manage_subscription: "Gérer l'abonnement",
+    manage_subscription_loading: "Ouverture de votre abonnement...",
+    manage_subscription_error: "Impossible d'ouvrir votre abonnement pour le moment. Veuillez réessayer sous peu.",
     expand_scroll: "Élargir mon parchemin",
     seekingStatus1: "Elle suit les traces entre les étagères...",
     seekingStatus2: "La huppe a préparé quelque chose. Consultez votre message.",
@@ -609,6 +621,7 @@ const ALL_COUNTRIES = [
   { name: 'Iraq', code: 'iq' },
   { name: 'Ireland', code: 'ie' },
   { name: 'Isle of Man', code: 'im' },
+  { name: 'Israel', code: 'il' },
   { name: 'Italy', code: 'it' },
   { name: 'Jamaica', code: 'jm' },
   { name: 'Japan', code: 'jp' },
@@ -963,17 +976,30 @@ goalForm.addEventListener("submit", (e) => {
 document.getElementById("returning-link").addEventListener("click", () => {
   if (state.userId) {
     // Already authenticated — this button now reads "Log out" (see
-    // updateAuthButtonLabel), so clicking it should actually do that,
-    // not open a login panel that wouldn't make sense to show someone
-    // who's already signed in.
-    logOut();
+    // updateAuthButtonLabel). Rather than logging out immediately on a
+    // single click (the old behavior), it opens the same kind of
+    // floating account panel as the login one below — reusing the
+    // already-proven-responsive .auth-panel pattern — so a Premium
+    // user also has somewhere to reach "Manage subscription" from,
+    // fitting both laptop and phone the same way the login panel does.
+    document.getElementById("account-panel").classList.toggle("hidden");
     return;
   }
   document.getElementById("returning-panel").classList.toggle("hidden");
 });
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".auth-picker")) document.getElementById("returning-panel").classList.add("hidden");
+  if (!e.target.closest(".auth-picker")) {
+    document.getElementById("returning-panel").classList.add("hidden");
+    document.getElementById("account-panel").classList.add("hidden");
+  }
 });
+
+document.getElementById("account-logout-btn").addEventListener("click", () => {
+  document.getElementById("account-panel").classList.add("hidden");
+  logOut();
+});
+
+document.getElementById("manage-subscription-btn").addEventListener("click", openManageSubscription);
 
 // ---------- password reset: requesting the link ----------
 document.getElementById("forgot-password-link").addEventListener("click", () => {
@@ -1267,6 +1293,64 @@ function updateAuthButtonLabel() {
   const key = state.userId ? "logOutLink" : "returningLink";
   btn.setAttribute("data-i18n", key);
   btn.textContent = t(key);
+  updateManageSubscriptionVisibility();
+}
+
+// "Manage subscription" should only ever appear for someone who is
+// actually logged in AND currently Premium — a free/logged-out visitor
+// has no Paddle subscription for it to manage. Called from every place
+// state.userId or state.isPremium can change (updateAuthButtonLabel and
+// celebrateIfNewlyPremium cover all of them — see their call sites)
+// rather than trying to track this separately, so it can't drift out of
+// sync with the real account state.
+function updateManageSubscriptionVisibility() {
+  const btn = document.getElementById("manage-subscription-btn");
+  if (!btn) return;
+  btn.classList.toggle("hidden", !(state.userId && state.isPremium));
+}
+
+// Asks our own backend for a real, personal Paddle "manage subscription"
+// link (see /api/manage-subscription in server.js) and opens it in a new
+// tab. The link is generated fresh on every click, never cached — same
+// rule Paddle's own docs give for these portal-session links.
+async function openManageSubscription() {
+  const msg = document.getElementById("manage-subscription-message");
+  const btn = document.getElementById("manage-subscription-btn");
+  msg.textContent = t("manage_subscription_loading");
+  btn.disabled = true;
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const token = sessionData && sessionData.session && sessionData.session.access_token;
+    if (!token) {
+      msg.textContent = t("manage_subscription_error");
+      return;
+    }
+
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/manage-subscription`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    });
+    const result = await res.json().catch(() => ({}));
+
+    if (!res.ok || !result.url) {
+      console.warn("Could not get a subscription management link:", result.error);
+      msg.textContent = t("manage_subscription_error");
+      return;
+    }
+
+    msg.textContent = "";
+    // A real, brand-new browser tab/window (not window.location) —
+    // keeps the app itself open and running underneath, same pattern as
+    // any other "opens an external site" action in this app.
+    window.open(result.url, "_blank", "noopener");
+    document.getElementById("account-panel").classList.add("hidden");
+  } catch (err) {
+    console.error("Could not open subscription management:", err);
+    msg.textContent = t("manage_subscription_error");
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 document.getElementById("continue-button").addEventListener("click", async () => {
@@ -1562,6 +1646,11 @@ function startSeekingDelay(previouslyCompleted = []) {
     // real bug this fixes in sequenceWithAI's own comment above it.
     try {
       state.currentPath = await sequenceWithAI(state.goal, levelToUse, state.format, state.timeCommitment, rawItems, previouslyCompleted, state.levelOther);
+      // A 2-step path should never reach a user: if sequencing came back
+      // with fewer than 3 steps although more real items exist, use them.
+      if (state.currentPath.length < 3 && rawItems.length > state.currentPath.length) {
+        state.currentPath = rawItems.slice(0, 5);
+      }
       state.pathWasGenericFallback = goalWasNotRecognized;
     } catch (err) {
       if (err.isFreeLimitBlock) {
@@ -1741,14 +1830,32 @@ function findLocalStoreLink(book) {
 
 async function searchBooksOpenLibrary(query, contentLanguage) {
   try {
-    let url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=20`;
+    // sort=editions puts widely-published (i.e. famous) books ahead of
+    // obscure title matches and old one-off public-domain scans.
+    let url =
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=30&sort=editions` +
+      `&fields=key,title,author_name,cover_i,ebook_access,ia,edition_count,first_publish_year,publish_year`;
     const langCode = OPENLIBRARY_LANG_CODES[contentLanguage];
     if (langCode) url += `&language=${langCode}`;
 
     const res = await fetch(url);
     if (!res.ok) throw new Error("Open Library request failed: " + res.status);
     const data = await res.json();
-    return (data.docs || []).slice(0, 6).map((doc) => {
+    let docs = data.docs || [];
+    // Prefer books with several editions; only relax if that leaves too few.
+    const popular = docs.filter((d) => (d.edition_count || 0) >= 3);
+    if (popular.length >= MIN_PATH_ITEMS) docs = popular;
+    // People need to be able to FIND the book: a famous 1900 edition
+    // nobody can buy is worse than a 2020 edition. Newest edition year
+    // known to Open Library; recent ones come first (stable otherwise).
+    const latestYear = (d) => {
+      const ys = (d.publish_year || []).filter((y) => Number.isInteger(y) && y <= new Date().getFullYear());
+      return ys.length ? Math.max(...ys) : d.first_publish_year || 0;
+    };
+    docs = docs.map((d) => ({ d, y: latestYear(d) }));
+    docs.sort((a, b) => (b.y >= 2000 ? 1 : 0) - (a.y >= 2000 ? 1 : 0));
+    docs = docs.map((x) => Object.assign(x.d, { _latestYear: x.y }));
+    return docs.slice(0, 8).map((doc) => {
       // "public" ebook_access + a real Internet Archive identifier means
       // this book is genuinely, legally free to read/download (usually
       // public domain) — not every book has this, and we only ever link
@@ -1763,6 +1870,7 @@ async function searchBooksOpenLibrary(query, contentLanguage) {
         author: doc.author_name ? doc.author_name[0] : "Unknown author",
         coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
         pdfUrl: hasFreeEbook ? `https://archive.org/details/${doc.ia[0]}` : null,
+        editionYear: doc._latestYear || null,
         reason: `A real, current book match for "${query}".`,
       };
     });
@@ -1770,6 +1878,72 @@ async function searchBooksOpenLibrary(query, contentLanguage) {
     console.error("Book search failed, will fall back to the demo catalog:", err);
     return null;
   }
+}
+
+// Fewer than this many items should never be turned into a path — a
+// 2-step "learning path" isn't one. Anything short triggers broadening.
+const MIN_PATH_ITEMS = 4;
+
+// "AI proposes, then verify": the backend has Claude propose well-known
+// books for the goal (and translate it to a short English search goal),
+// then verifies every one against Open Library. Returns
+// { searchGoal, items } or null if the backend is unreachable.
+async function suggestBooksAI(goal, level, contentLanguage) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (!accessToken) return null;
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/suggest-books`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ goal, level, contentLanguage }),
+    });
+    if (!res.ok) throw new Error("book suggestion backend not available");
+    const result = await res.json();
+    return { searchGoal: result.searchGoal || "", angleQueries: result.angleQueries || {}, items: Array.isArray(result.items) ? result.items : [] };
+  } catch (err) {
+    console.warn("Book suggestions unavailable, will use keyword search:", err.message);
+    return null;
+  }
+}
+
+// Cheap angle planning for video breadth — returns { searchGoal,
+// angleQueries } or null if the backend is unreachable.
+async function planAnglesAI(goal, level) {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (!accessToken) return null;
+    const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/plan-angles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ goal, level }),
+    });
+    if (!res.ok) throw new Error("angle planning backend not available");
+    return await res.json();
+  } catch (err) {
+    console.warn("Angle planning unavailable, videos will use the plain goal:", err.message);
+    return null;
+  }
+}
+
+// Videos with breadth: the core search plus foundation + adjacent angle
+// searches, merged and deduped. Each YouTube search costs 100 quota
+// units, so this is capped at 3 searches per path.
+async function searchVideosWithAngles(coreTerm, angleQueries, contentLanguage) {
+  const queries = [coreTerm, angleQueries && angleQueries.foundation, angleQueries && angleQueries.adjacent].filter(Boolean);
+  const lists = await Promise.all(queries.map((q) => searchVideosYouTube(q, contentLanguage)));
+  const seen = new Set();
+  const out = [];
+  const maxLen = Math.max(0, ...lists.map((l) => (l ? l.length : 0)));
+  // interleave so each angle is represented, foundation first in time order is left to the sequencer
+  for (let i = 0; i < maxLen; i++) {
+    for (const l of lists) {
+      const v = l && l[i];
+      if (v && !seen.has(v.id)) { seen.add(v.id); out.push(v); }
+    }
+  }
+  return out.length ? out.slice(0, 10) : null;
 }
 
 // The YouTube key no longer lives in any frontend file — this now calls
@@ -1802,6 +1976,43 @@ async function searchVideosYouTube(query, contentLanguage) {
   }
 }
 
+// Whatever the format (books, videos, articles, courses, mix), fewer
+// than MIN_PATH_ITEMS real items must never become a path. If the core
+// search came back short (and wasn't already the generic catalog), broaden:
+// retry the same type with a wider query, then top up with verified books
+// and finally videos. Duplicates are dropped by id.
+async function buildPathReal(goal, contentType, contentLanguage, level) {
+  const items = await buildPathRealCore(goal, contentType, contentLanguage, level);
+  const generic = !!items._usedGenericFallback;
+  if (generic || items.length >= MIN_PATH_ITEMS) return items;
+
+  let result = items.slice();
+  const add = (list) => {
+    const have = new Set(result.map((x) => x.id));
+    for (const x of list || []) if (x && !have.has(x.id)) { result.push(x); have.add(x.id); }
+  };
+  const term = extractSearchTerm(goal) || goal;
+  try {
+    if (contentType === "articles" || contentType === "courses") {
+      add(await searchContentWithAI(`${goal} (broader: include introductory overviews and closely related subtopics)`, contentType, level || "basics", contentLanguage));
+    } else if (contentType === "videos" || contentType === "mix") {
+      add(await searchVideosYouTube(`${term} explained for beginners`, contentLanguage));
+    }
+    if (result.length < MIN_PATH_ITEMS) {
+      const suggested = await suggestBooksAI(goal, level, contentLanguage);
+      add(suggested && suggested.items);
+      if (result.length < MIN_PATH_ITEMS) add(await searchBooksOpenLibrary((suggested && suggested.searchGoal) || term, "any"));
+    }
+    if (result.length < MIN_PATH_ITEMS && contentType !== "videos" && contentType !== "mix") {
+      add(await searchVideosYouTube(term, contentLanguage));
+    }
+  } catch (err) {
+    console.warn("Broadening search failed:", err.message);
+  }
+  result._usedGenericFallback = false;
+  return result;
+}
+
 // This is the REAL path builder used whenever a new path is actually
 // created — it fetches live books AND videos instead of using the small
 // hardcoded list for those types. Articles/courses still come from the
@@ -1812,7 +2023,7 @@ async function searchVideosYouTube(query, contentLanguage) {
 // replay) — for every path created after this fix, reopening reads the
 // stored items directly instead of calling this again (see the click
 // handler in renderPathsList).
-async function buildPathReal(goal, contentType, contentLanguage, level) {
+async function buildPathRealCore(goal, contentType, contentLanguage, level) {
   const topic = resolveTopic(goal);
   const staticItems = CATALOG[topic].books;
   const cleanTerm = extractSearchTerm(goal) || topic;
@@ -1830,19 +2041,48 @@ async function buildPathReal(goal, contentType, contentLanguage, level) {
   const wantsVideos = contentType === "videos" || contentType === "mix";
 
   let bookResults = [];
+  let bookAngles = {};
+  let searchGoal = ""; // short English version of the goal, from the AI step (helps Arabic/French goals)
   if (wantsBooks) {
-    const liveBooks = await searchBooksOpenLibrary(cleanTerm, contentLanguage);
-    if (liveBooks && liveBooks.length > 0) {
-      bookResults = liveBooks;
+    // Step 1: AI proposes well-known books, backend verifies each one.
+    const suggested = await suggestBooksAI(goal, level, contentLanguage);
+    let books = suggested ? suggested.items.slice() : [];
+    if (suggested && suggested.searchGoal) searchGoal = suggested.searchGoal;
+    if (suggested && suggested.angleQueries) bookAngles = suggested.angleQueries;
+
+    // Step 2: below the minimum -> broaden with popularity-sorted keyword
+    // search using the English goal, first in the chosen language, then
+    // in any language. Dedupe by id.
+    const addUnique = (list) => {
+      const have = new Set(books.map((b) => b.id));
+      for (const b of list || []) if (!have.has(b.id)) { books.push(b); have.add(b.id); }
+    };
+    if (books.length < MIN_PATH_ITEMS) addUnique(await searchBooksOpenLibrary(searchGoal || cleanTerm, contentLanguage));
+    if (books.length < MIN_PATH_ITEMS) addUnique(await searchBooksOpenLibrary(searchGoal || cleanTerm, "any"));
+
+    if (books.length > 0) {
+      bookResults = books;
     } else {
-      bookResults = filterItems(staticItems, "books", contentLanguage); // API failed/empty — fall back, still honoring language
-      if (topic === "default") usedGenericFallback = true;
+      bookResults = filterItems(staticItems, "books", contentLanguage); // everything failed — fall back, still honoring language
+      if (topic === "default" && resolveTopic(searchGoal) === "default") usedGenericFallback = true;
     }
   }
 
   let videoResults = [];
   if (wantsVideos) {
-    const liveVideos = await searchVideosYouTube(cleanTerm, contentLanguage);
+    // Arabic-language videos are best found with the original wording;
+    // otherwise the short English goal (when we have one) searches better.
+    let angles = {};
+    if (!searchGoal || contentType === "videos") {
+      const plan = await planAnglesAI(goal, level);
+      if (plan) {
+        if (plan.searchGoal && !searchGoal) searchGoal = plan.searchGoal;
+        angles = plan.angleQueries || {};
+      }
+    }
+    if (!Object.keys(angles).length && bookAngles) angles = bookAngles;
+    const videoTerm = contentLanguage === "ar" ? cleanTerm : searchGoal || cleanTerm;
+    const liveVideos = await searchVideosWithAngles(videoTerm, angles, contentLanguage);
     if (liveVideos && liveVideos.length > 0) {
       videoResults = liveVideos;
     } else {
@@ -2083,7 +2323,7 @@ function renderPathGrid() {
         <span class="path-index">${String(i + 1).padStart(2, "0")}</span>
         ${coverHtml}
         <h3>${escapeHtml(book.title)}</h3>
-        <p>${escapeHtml(book.author)} — ${escapeHtml(book.reason)}</p>
+        <p>${escapeHtml(book.author)}${book.editionYear ? " (" + escapeHtml(String(book.editionYear)) + ")" : ""} — ${escapeHtml(book.reason)}</p>
         ${extraLinksHtml}`;
     }
     grid.appendChild(card);
@@ -2328,6 +2568,7 @@ function celebrateIfNewlyPremium(isPremiumNow) {
   } catch (err) {
     // Non-fatal if this fails.
   }
+  updateManageSubscriptionVisibility();
 }
 
 // A brief, tasteful moment when someone genuinely becomes premium —

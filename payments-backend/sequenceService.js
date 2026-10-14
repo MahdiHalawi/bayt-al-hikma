@@ -43,7 +43,7 @@ function resolveLevelInstruction(level, levelOther) {
 
 function buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted }) {
   const itemList = items
-    .map((it, i) => `${i}. id: "${it.id}" | type: ${it.type} | "${it.title}" by ${it.author}`)
+    .map((it, i) => `${i}. id: "${it.id}" | type: ${it.type}${it.angle ? ` | angle: ${it.angle}` : ""} | "${it.title}" by ${it.author}`)
     .join("\n");
 
   // Only present when this is an "Expand my scroll" continuation, not a
@@ -67,7 +67,9 @@ ${resolveLevelInstruction(level, levelOther)}
 ${TIME_INSTRUCTIONS[timeCommitment] || TIME_INSTRUCTIONS.moderate}
 ${FORMAT_NOTES[format] || FORMAT_NOTES.either}
 
-Choose between 3 and ${Math.min(items.length, 7)} of these resources — however many genuinely form a good progression, not necessarily all of them.
+Choose between ${Math.min(items.length, 4)} and ${Math.min(items.length, 7)} of these resources (never fewer than ${Math.min(items.length, 4)}) — however many genuinely form a good progression, not necessarily all of them.
+
+BREADTH: a strong path covers several angles, not just the immediate topic — start with foundations/prerequisites when the learner needs them, then the core topic, then history, neighbouring disciplines, and where it is heading. Do NOT choose several near-duplicate resources on the exact same narrow thing (e.g. multiple items that just share the topic word in the title) when a resource from a different angle would round out understanding. Where items carry an "angle" tag, use it.
 
 Return ONLY a JSON array, no surrounding text, no markdown fences. Each item must have exactly this shape:
 { "id": "<must exactly match an id from the list above>", "reason": "<one sentence: why this belongs at this point in the progression>" }

@@ -77,3 +77,37 @@ function resolvePremiumAction(event) {
 }
 
 module.exports.resolvePremiumAction = resolvePremiumAction;
+
+// Pulls the Paddle customer id and subscription id out of a webhook
+// event, so they can be saved alongside is_premium — this is what lets
+// "Manage subscription" later ask Paddle for a real, personal portal
+// link for exactly this customer, instead of a generic one.
+//
+// Kept entirely separate from resolvePremiumAction on purpose: that
+// function's return shape ({action, userId}) is already directly
+// asserted against in existing tests (including exact-shape
+// deepStrictEqual checks), and this needs to be one more thing to learn
+// from an event, not a change to what that function already promises.
+//
+// Field locations, confirmed against Paddle's real webhook payload
+// shape (Paddle docs + example subscription.created payload):
+//   - data.customer_id — present on subscription.* events
+//   - data.id — for a subscription.* event, this IS the subscription's
+//     own id (for transaction.completed it would be the transaction's
+//     id instead, which is why that case is excluded below)
+//   - data.subscription_id — present directly on transaction.* events
+function extractPaddleIds(event) {
+  if (!event || !event.data || typeof event.data !== "object") {
+    return { customerId: null, subscriptionId: null };
+  }
+
+  const customerId = event.data.customer_id || null;
+
+  const eventType = typeof event.event_type === "string" ? event.event_type : "";
+  const subscriptionId =
+    event.data.subscription_id || (eventType.startsWith("subscription.") ? event.data.id || null : null);
+
+  return { customerId, subscriptionId: subscriptionId || null };
+}
+
+module.exports.extractPaddleIds = extractPaddleIds;

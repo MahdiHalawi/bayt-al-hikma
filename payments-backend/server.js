@@ -25,7 +25,9 @@ const { createClient } = require("@supabase/supabase-js");
 const { sequencePath } = require("./sequenceService");
 const { searchContent } = require("./contentSearchService");
 const { searchVideos } = require("./videoSearchService");
-const { verifyPaddleSignature, resolvePremiumAction } = require("./paddleWebhookService");
+const { suggestBooks, planAngles } = require("./bookSuggestService");
+const { verifyPaddleSignature, resolvePremiumAction, extractPaddleIds } = require("./paddleWebhookService");
+const { createPaddlePortalSession } = require("./paddlePortalService");
 const { verifyRequestAuth } = require("./authHelper");
 const { validatePendingGoalRequest } = require("./pendingGoalService");
 const { hasReachedFreePathLimit } = require("./pathLimitService");
@@ -150,7 +152,20 @@ app.post("/webhook-paddle", express.raw({ type: "application/json" }), async (re
     } else if (!sbAdmin) {
       console.warn("Payment confirmed but Supabase admin isn't configured — could not mark the user premium.");
     } else {
-      const { error } = await sbAdmin.from("profiles").upsert({ id: userId, is_premium: true });
+      // Also captures the real Paddle customer/subscription ids off this
+      // event when present, so "Manage subscription" can later ask
+      // Paddle for a genuine, personal portal link for this specific
+      // customer — see extractPaddleIds and paddlePortalService.js.
+      // Only included in the upsert when actually present on THIS event
+      // (e.g. a transaction.completed grant may not carry them), so an
+      // earlier subscription.created event's ids are never overwritten
+      // with blanks by a later, less detailed event.
+      const { customerId, subscriptionId } = extractPaddleIds(event);
+      const patch = { id: userId, is_premium: true };
+      if (customerId) patch.paddle_customer_id = customerId;
+      if (subscriptionId) patch.paddle_subscription_id = subscriptionId;
+
+      const { error } = await sbAdmin.from("profiles").upsert(patch);
       if (error) console.error("Failed to mark user premium in Supabase:", error.message);
       else console.log(`User ${userId} marked premium after real Paddle ${event.event_type} confirmation.`);
     }
@@ -250,6 +265,62 @@ app.post("/api/save-pending-goal", pendingGoalLimiter, async (req, res) => {
   }
 });
 
+const manageSubscriptionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests — please slow down and try again shortly." },
+});
+
+// Builds a real, personal Paddle "manage subscription" link for the
+// currently logged-in user and hands it back so the frontend can open
+// it. Requires a real, currently-valid session (same auth pattern as
+// the other protected endpoints) — this endpoint only ever looks up
+// and acts on the CALLING user's own stored Paddle ids, never an id
+// supplied by the request body, so there's no way to request someone
+// else's management link.
+app.post("/api/manage-subscription", manageSubscriptionLimiter, async (req, res) => {
+  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
+  if (!user) {
+    return res.status(401).json({ error: authError || "Unauthorized" });
+  }
+  if (!sbAdmin) {
+    return res.status(503).json({ error: "Service temporarily unavailable" });
+  }
+  if (!process.env.PADDLE_API_KEY) {
+    console.warn("PADDLE_API_KEY not set — cannot build a subscription management link yet.");
+    return res.status(501).json({ error: "Subscription management isn't configured yet" });
+  }
+
+  try {
+    const { data: profile, error: profileError } = await sbAdmin
+      .from("profiles")
+      .select("paddle_customer_id, paddle_subscription_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile || !profile.paddle_customer_id) {
+      return res.status(404).json({ error: "No subscription found for this account yet" });
+    }
+
+    const result = await createPaddlePortalSession({
+      customerId: profile.paddle_customer_id,
+      subscriptionId: profile.paddle_subscription_id,
+      apiKey: process.env.PADDLE_API_KEY,
+      apiBase: process.env.PADDLE_API_BASE, // defaults to Live API inside the service; set to https://sandbox-api.paddle.com while testing in Sandbox
+    });
+
+    if (!result.url) {
+      return res.status(502).json({ error: "Paddle didn't return a management link" });
+    }
+    res.json({ url: result.url });
+  } catch (err) {
+    console.error("Could not create Paddle portal session:", err);
+    res.status(500).json({ error: "Could not create a subscription management link" });
+  }
+});
+
 // Takes the REAL items the frontend already fetched from Open Library /
 // YouTube, and returns them selected + sequenced into a genuine
 // beginner→mastery progression. Never invents new items — see
@@ -337,6 +408,49 @@ app.post("/api/search-content", contentSearchLimiter, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Something went wrong searching for content" });
   }
+});
+
+// "AI proposes, then verify": Claude proposes well-known books (and an
+// English search goal), each one is verified against Open Library, and
+// only verified books are returned. See bookSuggestService.js.
+const bookSuggestLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests — please slow down and try again shortly." },
+});
+
+app.post("/api/suggest-books", bookSuggestLimiter, async (req, res) => {
+  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
+  if (!user) {
+    return res.status(401).json({ error: authError || "Unauthorized" });
+  }
+  const { goal, level, contentLanguage } = req.body || {};
+  if (!goal || typeof goal !== "string") {
+    return res.status(400).json({ error: "'goal' is required" });
+  }
+  try {
+    const result = await suggestBooks({ goal: goal.slice(0, 300), level, contentLanguage });
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Something went wrong suggesting books" });
+  }
+});
+
+// Cheap angle planning for video searches (English goal + search phrases
+// for foundation / adjacent / history angles). See bookSuggestService.js.
+app.post("/api/plan-angles", bookSuggestLimiter, async (req, res) => {
+  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
+  if (!user) {
+    return res.status(401).json({ error: authError || "Unauthorized" });
+  }
+  const { goal, level } = req.body || {};
+  if (!goal || typeof goal !== "string") {
+    return res.status(400).json({ error: "'goal' is required" });
+  }
+  res.json(await planAngles({ goal: goal.slice(0, 300), level }));
 });
 
 // Same protection pattern as the other AI endpoints — the key now lives

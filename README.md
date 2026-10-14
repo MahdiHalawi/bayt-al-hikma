@@ -11,12 +11,13 @@ This is not a demo or prototype — real accounts, real payments, and real users
 
 - ✅ Real accounts (Supabase Auth), with email confirmation and password reset fully working
 - ✅ Real payments (Paddle, Live mode) — Stripe is not used; Paddle was chosen since Stripe doesn't support Lebanon
+- ✅ Real, self-service "Manage subscription" in the UI — a live Paddle customer-portal link, not a link buried in an old receipt email
 - ✅ Real security review completed: XSS escaping on all user/external content, Row Level Security verified on every table, rate limiting on cost-incurring endpoints
 - ✅ Multi-language: English, Arabic (full RTL support), French
 - ✅ Country-specific pricing (accessible tier for Lebanon, Jordan, Egypt, Iraq, Tunisia, Morocco)
 - ✅ Legal pages live: Privacy Policy, Terms of Service, 14-day Refund Policy, standalone Pricing page
 - ✅ Real analytics (Umami) and error monitoring (Sentry) live in production
-- ✅ Extensive automated test coverage: 78 backend tests, 14+ frontend test files
+- ✅ Extensive automated test coverage: 103 backend tests, 14+ frontend test files
 
 ## How the core product actually works
 
@@ -55,6 +56,39 @@ cd payments-backend
 node --test test/paddleWebhookService.test.js
 node --test test/resolvePremiumAction.test.js
 ```
+
+## Manage subscription — real, self-service cancellation
+
+Until now, a subscriber's only way to cancel was digging up Paddle's own link from an old receipt email — not something anyone should have to do. There's now a real **"Manage subscription"** option in the site itself: click the account badge in the top bar (same spot "Log out" already lived) while logged in as Premium, and a small panel opens with a "Manage subscription" button alongside "Log out" — same floating, responsive panel component already used for login, so it fits phone and laptop screens the same way that one already does, with no separate mobile-specific work needed.
+
+**How it actually works:** clicking it calls the backend's new `/api/manage-subscription` endpoint (auth-protected, rate-limited, same pattern as the other endpoints), which asks Paddle's real **Create Customer Portal Session** API for a live, personal link into that customer's own Paddle-hosted portal (plan, payment method, and a real "Cancel subscription" option) — then opens it in a new tab. Paddle's own docs say these links carry a short-lived token and "shouldn't be cached," so nothing is ever stored client-side; a fresh link is requested on every click.
+
+This required capturing two ids that weren't tracked before: `paddle_customer_id` and `paddle_subscription_id`, pulled off the real webhook payload (`extractPaddleIds` in `paddleWebhookService.js`) and saved to `profiles` the moment a subscription is granted. **A real, one-time consequence of this: anyone who subscribed before this change won't have these ids on their profile yet**, so "Manage subscription" won't find anything for them until their subscription's next renewal event re-fires the webhook (or they're backfilled manually via the Paddle dashboard — their existing Paddle customer id is visible there under Customers). New subscribers from this point on are unaffected.
+
+**Setup:** add to `payments-backend/.env`:
+```
+PADDLE_API_KEY=...          # Developer Tools → Authentication → API keys (NOT the client-side token)
+PADDLE_API_BASE=https://api.paddle.com   # use https://sandbox-api.paddle.com while testing in Sandbox
+```
+
+**Database migration required** — run once in the Supabase SQL Editor:
+```sql
+alter table profiles add column paddle_customer_id text;
+alter table profiles add column paddle_subscription_id text;
+```
+
+Test the id-extraction and portal-link logic directly, no live Paddle account needed:
+```bash
+cd payments-backend
+node --test test/extractPaddleIds.test.js
+node --test test/paddlePortalService.test.js
+```
+
+## Book selection — "AI proposes, then verify"
+
+Open Library keyword search returns title matches and obscure/old scans, so books are now chosen differently: `/api/suggest-books` (`bookSuggestService.js`) has Claude propose 10–12 well-known books for the goal (and translate Arabic/French goals to a short English search goal), then **every candidate is verified against Open Library by title + author** — unverified books are dropped, so nothing is invented. The most-published record wins. Newest buyable edition is preferred over an older, more-published one (the year is shown on the card). If fewer than 4 verify, a second round asks for different/broader books; if still short, a popularity-sorted (`sort=editions`) keyword search with the English goal tops it up. Every format (books, videos, articles, courses, mix) is held to a minimum of 4 real items: short results are broadened and topped up, and the sequencer is told to pick at least 4.
+
+Breadth applies to every format: article/course web searches are told to cover foundation, core, history, adjacent-discipline and current-relevance angles, and video searches run up to 3 angle searches (core + foundation + adjacent, planned by the cheap `/api/plan-angles` call; each YouTube search costs 100 of the 10,000 daily quota units).
 
 ## Free-tier enforcement — a real bug worth knowing about
 
@@ -99,7 +133,7 @@ cd payments-backend
 node --test test/*.test.js
 ```
 
-78 tests, covering auth, rate limiting, webhook signature verification and event resolution, the free-path-limit enforcement, content search grounding, sequencing, and the pending-goal cross-browser fix.
+103 tests, covering auth, rate limiting, webhook signature verification and event resolution, the free-path-limit enforcement, content search grounding, sequencing, the pending-goal cross-browser fix, and the Paddle id-extraction/portal-link logic behind "Manage subscription."
 
 Frontend tests (jsdom-based, simulating real user flows including signup, cross-device/cross-browser confirmation, XSS payloads, and the permanent-unlock logic) live alongside the project and are run individually with `node <test-file>.js`.
 

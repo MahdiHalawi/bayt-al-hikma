@@ -22,6 +22,8 @@ function buildContentSearchPrompt({ goal, contentType, level, contentLanguage })
 Use your web search tool to find genuinely good ${typeLabel} — only ones you actually find through search just now, never ones you recall from memory.
 
 Learner level: ${level}.
+
+BREADTH AS WELL AS DEPTH: do not return only results with the topic word in the title. Cover several angles — a foundation (what must be understood first, e.g. for dementia: how the brain works), the core topic, its history or how it has been used, a neighbouring discipline that explains it from another side, and why it still matters today. Run your searches across these different angles.
 ${languageInstruction}
 After searching, return ONLY a JSON array (no surrounding text, no markdown fences) of 3 to 6 real results, each shaped exactly like this:
 { "title": "<real title>", "author": "<real publisher, site name, or course provider>", "url": "<the EXACT url from your search results>", "reason": "<one sentence: why this is a good fit>" }
