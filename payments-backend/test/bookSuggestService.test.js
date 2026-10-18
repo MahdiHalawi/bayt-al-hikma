@@ -125,3 +125,28 @@ test("planAngles returns an English goal and angle queries, and degrades to empt
   const bad = await planAngles({ goal: "x" }, { modelImpl: async () => { throw new Error("no"); } });
   assert.deepStrictEqual(bad.angleQueries, {});
 });
+
+test("an Arabic-titled candidate is verified through its English title when the Arabic title isn't in the catalog", async () => {
+  const f = catalog({
+    "basic economics": [{ key: "/w/be", title: "Basic Economics", author_name: ["Thomas Sowell"], edition_count: 30, publish_year: [2014] }],
+  });
+  const r = await verifyCandidate({ title: "مبادئ الاقتصاد", englishTitle: "Basic Economics", author: "Thomas Sowell" }, f);
+  assert.strictEqual(r.id, "/w/be");
+});
+
+test("Arabic matching ignores hamza/diacritic differences", () => {
+  assert.ok(titleMatches("ثروة الامم", "ثروة الأمم"));
+  assert.ok(titleMatches("الاقتصاد في درس واحد", "الاقتصاد في درس واحد"));
+});
+
+test("a throttled (429) Open Library response is retried once instead of silently counting as 'not found'", async () => {
+  let calls = 0;
+  const f = async () => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 429, json: async () => ({}) };
+    return { ok: true, json: async () => ({ docs: [{ key: "/w/x", title: "Basic Economics", author_name: ["Thomas Sowell"], edition_count: 9, publish_year: [2014] }] }) };
+  };
+  const r = await verifyCandidate({ title: "Basic Economics", author: "Thomas Sowell" }, f);
+  assert.strictEqual(r.id, "/w/x");
+  assert.strictEqual(calls, 2);
+});

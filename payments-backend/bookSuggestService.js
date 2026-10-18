@@ -17,8 +17,8 @@ const LANGUAGE_NAMES = { en: "English", ar: "Arabic", fr: "French" };
 function buildSuggestPrompt({ goal, level, contentLanguage, exclude = [] }) {
   const languageName = LANGUAGE_NAMES[contentLanguage];
   const languageLine = languageName
-    ? `The learner prefers books in ${languageName}. Prefer well-known books that exist in ${languageName} (original or published translation) and give "title" exactly as published in ${languageName}, with "author" in Latin letters. If there are not enough, fill up with the best books in any language, giving their English titles.`
-    : `Give titles in English unless a book is best known under another title.`;
+    ? `The learner prefers ${languageName}. For EVERY book give BOTH "title" (exactly as published in ${languageName}, or its English title if it was never published in ${languageName}) AND "englishTitle" (the original/English title as catalogued internationally), with "author" always written in Latin letters. Prefer books that exist in ${languageName}, but fill up with the best books in any language.`
+    : `Give titles in English unless a book is best known under another title. Also include "englishTitle" (same as title).`;
   const excludeLine = exclude.length
     ? `\nDo NOT repeat these books (already found): ${exclude.map((b) => `"${b.title}"`).join(", ")}. Propose DIFFERENT books from other angles (foundations, history, neighbouring disciplines).\n`
     : "";
@@ -26,7 +26,7 @@ function buildSuggestPrompt({ goal, level, contentLanguage, exclude = [] }) {
   const system = `You are an expert librarian and teacher. A learner's goal is: "${goal}" (learner level: ${level || "basics"}; the goal may be written in any language).
 
 Return ONLY a JSON object (no markdown fences, no extra text) shaped exactly like:
-{ "searchGoal": "<the goal as a short English search phrase of 1-4 words, e.g. 'psychology'>", "angleQueries": { "foundation": "<2-5 word search phrase>", "adjacent": "<2-5 word search phrase>", "history": "<2-5 word search phrase>" }, "books": [ { "title": "<exact published title>", "author": "<author's full name>", "angle": "<one of: foundation, core, history, adjacent, current>", "reason": "<one sentence on why a good teacher would pick this for this learner>" } ] }
+{ "searchGoal": "<the goal as a short English search phrase of 1-4 words, e.g. 'psychology'>", "angleQueries": { "foundation": "<2-5 word search phrase>", "adjacent": "<2-5 word search phrase>", "history": "<2-5 word search phrase>" }, "books": [ { "title": "<exact published title>", "englishTitle": "<English / original catalogued title>", "author": "<author's full name in Latin letters>", "angle": "<one of: foundation, core, history, adjacent, current>", "reason": "<one sentence on why a good teacher would pick this for this learner>" } ] }
 
 Rules:
 - Propose 12 to 14 REAL, well-known, widely-read books a good teacher would genuinely recommend. Never obscure titles, never children's books, never books that merely have the topic word in the title.
@@ -50,7 +50,7 @@ async function callModel({ system, user }, fetchImpl = fetch) {
   const response = await fetchImpl("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1500, system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 8000, system, messages: [{ role: "user", content: user }] }),
   });
   if (!response.ok) throw new Error(`Anthropic API error ${response.status}: ${await response.text()}`);
   const data = await response.json();
@@ -102,10 +102,14 @@ function normalize(s) {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "") // Arabic diacritics + tatweel
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^(the|a|an|le|la|les|al)\s+/, "");
+    .replace(/^(the|a|an|le|la|les|al|ال)\s+/, "");
 }
 
 function titleMatches(docTitle, candTitle) {
@@ -140,21 +144,46 @@ function rankDocs(a, b) {
 }
 
 // Verifies ONE candidate. Returns a book item or null.
-async function verifyCandidate(cand, fetchImpl = fetch) {
-  const url =
-    `https://openlibrary.org/search.json?title=${encodeURIComponent(cand.title)}` +
-    `&author=${encodeURIComponent(cand.author)}&limit=10&fields=${FIELDS}`;
-  let data;
-  try {
-    const res = await fetchImpl(url);
-    if (!res.ok) return null;
-    data = await res.json();
-  } catch (err) {
-    return null;
+const OL_HEADERS = { "User-Agent": "BaytAlHikma/1.0 (account@baytalhikmaa.com)" };
+const olStats = { requests: 0, failed: 0 };
+
+async function fetchOpenLibrary(url, fetchImpl) {
+  // One retry on throttling / transient errors — Open Library rate-limits
+  // bursts, and a silent failure here looks exactly like "book not found".
+  for (let attempt = 0; attempt < 2; attempt++) {
+    olStats.requests++;
+    try {
+      const res = await fetchImpl(url, { headers: OL_HEADERS });
+      if (res.ok) return await res.json();
+      olStats.failed++;
+      if (res.status !== 429 && res.status < 500) return null;
+    } catch (err) {
+      olStats.failed++;
+    }
+    await new Promise((r) => setTimeout(r, 600));
   }
-  const matches = (data.docs || []).filter(
-    (d) => titleMatches(d.title, cand.title) && authorMatches(d.author_name, cand.author)
-  );
+  return null;
+}
+
+async function searchTitle(title, author, fetchImpl) {
+  const url =
+    `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}` +
+    `&author=${encodeURIComponent(author)}&limit=10&fields=${FIELDS}`;
+  const data = await fetchOpenLibrary(url, fetchImpl);
+  if (!data) return [];
+  return (data.docs || []).filter((d) => titleMatches(d.title, title) && authorMatches(d.author_name, author));
+}
+
+// Tries the title as published in the learner's language first, then the
+// international/English title — Open Library catalogues most books under
+// the English or original title, rarely under an Arabic translation.
+async function verifyCandidate(cand, fetchImpl = fetch) {
+  const variants = [cand.title, cand.englishTitle].filter((t, i, arr) => typeof t === "string" && t.trim() && arr.indexOf(t) === i);
+  let matches = [];
+  for (const v of variants) {
+    matches = await searchTitle(v, cand.author, fetchImpl);
+    if (matches.length) break;
+  }
   if (matches.length === 0) return null;
   const best = matches.sort(rankDocs)[0];
   const hasFreeEbook = best.ebook_access === "public" && Array.isArray(best.ia) && best.ia.length > 0;
@@ -173,7 +202,12 @@ async function verifyCandidate(cand, fetchImpl = fetch) {
 }
 
 async function verifyCandidates(cands, fetchImpl = fetch) {
-  const results = await Promise.all(cands.map((c) => verifyCandidate(c, fetchImpl)));
+  // Small batches instead of ~14 simultaneous requests, to stay under
+  // Open Library's rate limits.
+  const results = [];
+  for (let i = 0; i < cands.length; i += 4) {
+    results.push(...(await Promise.all(cands.slice(i, i + 4).map((c) => verifyCandidate(c, fetchImpl)))));
+  }
   const seen = new Set();
   const out = [];
   for (const r of results) {
@@ -195,13 +229,16 @@ async function suggestBooks({ goal, level, contentLanguage }, { fetchImpl = fetc
   let searchGoal = "";
   let angleQueries = {};
   let verified = [];
+  let proposed = 0;
   for (let round = 0; round < 2 && verified.length < MIN_VERIFIED; round++) {
     try {
       const raw = await ask(buildSuggestPrompt({ goal, level, contentLanguage, exclude: verified }));
       const parsed = parseSuggestions(raw);
       if (!searchGoal) searchGoal = parsed.searchGoal;
       if (!Object.keys(angleQueries).length) angleQueries = parsed.angleQueries;
+      proposed += parsed.books.length;
       const fresh = await verifyCandidates(parsed.books, fetchImpl);
+      console.log(`[suggest-books] round ${round + 1}: proposed ${parsed.books.length}, verified ${fresh.length} (Open Library requests so far: ${olStats.requests}, failed: ${olStats.failed}) lang=${contentLanguage || "any"}`);
       const have = new Set(verified.map((v) => v.id));
       verified = verified.concat(fresh.filter((f) => !have.has(f.id)));
     } catch (err) {
@@ -209,7 +246,7 @@ async function suggestBooks({ goal, level, contentLanguage }, { fetchImpl = fetc
       break;
     }
   }
-  return { searchGoal, angleQueries, items: verified, enough: verified.length >= MIN_VERIFIED };
+  return { searchGoal, angleQueries, proposed, items: verified, enough: verified.length >= MIN_VERIFIED };
 }
 
 module.exports = {

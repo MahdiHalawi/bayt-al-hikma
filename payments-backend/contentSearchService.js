@@ -47,7 +47,7 @@ async function callModelWithSearch({ system, user }) {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      max_tokens: 8000,
       system,
       messages: [{ role: "user", content: user }],
       // max_uses caps how many searches happen per request — a real,

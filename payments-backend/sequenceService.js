@@ -41,7 +41,50 @@ function resolveLevelInstruction(level, levelOther) {
   return LEVEL_INSTRUCTIONS[level] || LEVEL_INSTRUCTIONS.basics;
 }
 
-function buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted }) {
+const MAX_PATH = 7;
+const MIN_PATH = 4;
+const OUTPUT_LANGUAGE_NAMES = { ar: "Arabic", fr: "French" };
+
+// Every "reason" is shown to the learner, so it must be in their language.
+function outputLanguageNote(outputLanguage) {
+  const name = OUTPUT_LANGUAGE_NAMES[outputLanguage];
+  if (name) return `\nLANGUAGE: write every "reason" sentence in ${name} (item titles stay exactly as given in the list).\n`;
+  // Default: follow the language the learner typed their goal in, not the
+  // language of the website's interface.
+  return `\nLANGUAGE: write every "reason" sentence in the same language the learner's goal is written in (item titles stay exactly as given in the list).\n`;
+}
+
+// Hard guarantees the model can't be trusted with: never more than
+// MAX_PATH items, and never fewer than MIN_PATH when enough real items exist
+// (topped up from the pool, in the original order).
+function enforceBounds(path, allItems, avoidIds = new Set()) {
+  const floor = Math.min(MIN_PATH, allItems.length);
+  const out = path.slice(0, MAX_PATH);
+  if (out.length < floor) {
+    const have = new Set(out.map((p) => p.id));
+    // First choice: items the review didn't just throw out as weak fits.
+    for (const pass of [true, false]) {
+      for (const it of allItems) {
+        if (out.length >= floor) break;
+        if (have.has(it.id) || (pass && avoidIds.has(it.id))) continue;
+        out.push(it);
+        have.add(it.id);
+      }
+    }
+  }
+  return out;
+}
+
+// For a "mix" path the learner explicitly asked for different formats, so
+// the sequence should actually mix them when the pool has more than one.
+function mixNote(contentType, items) {
+  if (contentType !== "mix") return "";
+  const types = [...new Set((items || []).map((it) => it.type).filter(Boolean))];
+  if (types.length < 2) return "";
+  return `\nFORMAT MIX: the learner asked for a MIX of formats. The pool contains these types: ${types.join(", ")}. Include at least 2 items of each of the main types (when available) and interleave them sensibly across the progression, rather than choosing a single type.\n`;
+}
+
+function buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted, outputLanguage, contentType }) {
   const itemList = items
     .map((it, i) => `${i}. id: "${it.id}" | type: ${it.type}${it.angle ? ` | angle: ${it.angle}` : ""} | "${it.title}" by ${it.author}`)
     .join("\n");
@@ -66,7 +109,7 @@ ${completedSection}
 ${resolveLevelInstruction(level, levelOther)}
 ${TIME_INSTRUCTIONS[timeCommitment] || TIME_INSTRUCTIONS.moderate}
 ${FORMAT_NOTES[format] || FORMAT_NOTES.either}
-
+${outputLanguageNote(outputLanguage)}${mixNote(contentType, items)}
 Choose between ${Math.min(items.length, 4)} and ${Math.min(items.length, 7)} of these resources (never fewer than ${Math.min(items.length, 4)}) — however many genuinely form a good progression, not necessarily all of them.
 
 BREADTH: a strong path covers several angles, not just the immediate topic — start with foundations/prerequisites when the learner needs them, then the core topic, then history, neighbouring disciplines, and where it is heading. Do NOT choose several near-duplicate resources on the exact same narrow thing (e.g. multiple items that just share the topic word in the title) when a resource from a different angle would round out understanding. Where items carry an "angle" tag, use it.
@@ -95,7 +138,7 @@ function parseModelOutput(rawText) {
 // serves someone working toward the stated goal — not just whether it
 // mentions the topic. Weak fits can be swapped for a better item from
 // the remaining pool, or dropped entirely.
-function buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath, remainingItems }) {
+function buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath, remainingItems, outputLanguage, contentType }) {
   const chosenList = chosenPath
     .map((it, i) => `${i + 1}. id: "${it.id}" | "${it.title}" by ${it.author} | current reason: ${it.reason}`)
     .join("\n");
@@ -109,7 +152,7 @@ GOAL: "${goal}"
 ${resolveLevelInstruction(level, levelOther)}
 ${TIME_INSTRUCTIONS[timeCommitment] || TIME_INSTRUCTIONS.moderate}
 ${FORMAT_NOTES[format] || FORMAT_NOTES.either}
-
+${outputLanguageNote(outputLanguage)}${mixNote(contentType, [...chosenPath, ...remainingItems])}
 PROPOSED PATH (position 1 should serve a beginner at this goal; the final position should serve someone near mastery of it):
 ${chosenList}
 
@@ -123,7 +166,9 @@ ${remainingList}
 Return ONLY a JSON array, no surrounding text, no markdown fences, same shape as before:
 { "id": "<id from either the proposed path or the remaining items above>", "reason": "<one sentence, why this belongs at this point>" }
 
-This is the FINAL revised path, in order.`;
+This is the FINAL revised path, in order. It must contain between ${Math.min(MIN_PATH, chosenPath.length + remainingItems.length)} and ${MAX_PATH} items.
+
+Each "reason" is shown directly to the learner, so it must stand on its own: describe only why THIS item belongs at THIS point. Never mention replacing, removing, swapping or reviewing other items, and never refer to this review.`;
 
   const user = "Review the proposed path for genuine fit and finalize it now.";
   return { system, user };
@@ -163,7 +208,7 @@ async function callModel({ system, user }) {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1000, system, messages: [{ role: "user", content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 8000, system, messages: [{ role: "user", content: user }] }),
   });
 
   if (!response.ok) {
@@ -180,19 +225,19 @@ async function callModel({ system, user }) {
 // items: the real, already-fetched books/videos from the frontend.
 // Returns the same fallback-safe shape as curriculum-ai: never throws,
 // always returns SOMETHING usable, even if the model call fails.
-async function sequencePath({ goal, level, levelOther = "", format, timeCommitment, items, previouslyCompleted = [] }) {
+async function sequencePath({ goal, level, levelOther = "", format, timeCommitment, items, previouslyCompleted = [], outputLanguage, contentType = "" }) {
   if (!items || items.length === 0) {
     return { path: [], rejected: [], usedFallback: true, error: "No items provided to sequence" };
   }
 
-  const prompt = buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted });
+  const prompt = buildPrompt({ goal, level, levelOther, format, timeCommitment, items, previouslyCompleted, outputLanguage, contentType });
 
   let rawText;
   try {
     rawText = await callModel(prompt);
   } catch (err) {
     console.error("Sequencing model call failed, returning items unsequenced:", err.message);
-    return { path: items, rejected: [], usedFallback: true, error: err.message };
+    return { path: items.slice(0, MAX_PATH), rejected: [], usedFallback: true, error: err.message };
   }
 
   let rawItems;
@@ -200,7 +245,7 @@ async function sequencePath({ goal, level, levelOther = "", format, timeCommitme
     rawItems = parseModelOutput(rawText);
   } catch (err) {
     console.error("Could not parse sequencing output, returning items unsequenced:", err.message);
-    return { path: items, rejected: [], usedFallback: true, error: err.message };
+    return { path: items.slice(0, MAX_PATH), rejected: [], usedFallback: true, error: err.message };
   }
 
   const { path, rejected } = validateAndMerge(rawItems, items);
@@ -208,7 +253,7 @@ async function sequencePath({ goal, level, levelOther = "", format, timeCommitme
   if (path.length === 0) {
     // Every returned id was hallucinated/invalid — fall back to the
     // original, unsequenced-but-real items rather than showing nothing.
-    return { path: items, rejected, usedFallback: true };
+    return { path: items.slice(0, MAX_PATH), rejected, usedFallback: true };
   }
 
   // SECOND LAYER: critique the first pass's choices for genuine fit, not
@@ -219,13 +264,13 @@ async function sequencePath({ goal, level, levelOther = "", format, timeCommitme
   try {
     const chosenIds = new Set(path.map((p) => p.id));
     const remainingItems = items.filter((it) => !chosenIds.has(it.id));
-    const critiquePrompt = buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath: path, remainingItems });
+    const critiquePrompt = buildCritiquePrompt({ goal, level, levelOther, format, timeCommitment, chosenPath: path, remainingItems, outputLanguage, contentType });
     const critiqueRawText = await callModel(critiquePrompt);
     const critiqueRawItems = parseModelOutput(critiqueRawText);
     const { path: refinedPath, rejected: critiqueRejected } = validateAndMerge(critiqueRawItems, items);
 
     if (refinedPath.length > 0) {
-      return { path: refinedPath, rejected: [...rejected, ...critiqueRejected], usedFallback: false };
+      return { path: enforceBounds(refinedPath, items, new Set(path.map((p) => p.id).filter((id) => !refinedPath.some((r) => r.id === id)))), rejected: [...rejected, ...critiqueRejected], usedFallback: false };
     }
     // Critique pass returned nothing usable — fall back to the first
     // pass's result rather than losing a perfectly fine path over it.
@@ -234,7 +279,7 @@ async function sequencePath({ goal, level, levelOther = "", format, timeCommitme
     console.error("Critique pass failed, keeping the first-pass result:", err.message);
   }
 
-  return { path, rejected, usedFallback: false };
+  return { path: enforceBounds(path, items), rejected, usedFallback: false };
 }
 
-module.exports = { buildPrompt, buildCritiquePrompt, resolveLevelInstruction, parseModelOutput, validateAndMerge, sequencePath };
+module.exports = { mixNote, enforceBounds, outputLanguageNote, buildPrompt, buildCritiquePrompt, resolveLevelInstruction, parseModelOutput, validateAndMerge, sequencePath };

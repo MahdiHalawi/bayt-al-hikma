@@ -17,7 +17,7 @@ This is not a demo or prototype — real accounts, real payments, and real users
 - ✅ Country-specific pricing (accessible tier for Lebanon, Jordan, Egypt, Iraq, Tunisia, Morocco)
 - ✅ Legal pages live: Privacy Policy, Terms of Service, 14-day Refund Policy, standalone Pricing page
 - ✅ Real analytics (Umami) and error monitoring (Sentry) live in production
-- ✅ Extensive automated test coverage: 103 backend tests, 14+ frontend test files
+- ✅ Extensive automated test coverage: 108 backend tests, 14+ frontend test files
 
 ## How the core product actually works
 
@@ -89,6 +89,8 @@ node --test test/paddlePortalService.test.js
 Open Library keyword search returns title matches and obscure/old scans, so books are now chosen differently: `/api/suggest-books` (`bookSuggestService.js`) has Claude propose 10–12 well-known books for the goal (and translate Arabic/French goals to a short English search goal), then **every candidate is verified against Open Library by title + author** — unverified books are dropped, so nothing is invented. The most-published record wins. Newest buyable edition is preferred over an older, more-published one (the year is shown on the card). If fewer than 4 verify, a second round asks for different/broader books; if still short, a popularity-sorted (`sort=editions`) keyword search with the English goal tops it up. Every format (books, videos, articles, courses, mix) is held to a minimum of 4 real items: short results are broadened and topped up, and the sequencer is told to pick at least 4.
 
 Breadth applies to every format: article/course web searches are told to cover foundation, core, history, adjacent-discipline and current-relevance angles, and video searches run up to 3 angle searches (core + foundation + adjacent, planned by the cheap `/api/plan-angles` call; each YouTube search costs 100 of the 10,000 daily quota units).
+
+Every book card also carries a "Find this book" link (a Google Books search), since most books have no free edition; a "mix" path asks the sequencer for at least 2 items of each available format; and the sequencer writes its one-line reasons in the language the goal was typed in. Paths are capped at 7 steps and floored at 4.
 
 ## Free-tier enforcement — a real bug worth knowing about
 

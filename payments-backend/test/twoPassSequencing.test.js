@@ -6,6 +6,7 @@ const ITEMS = [
   { id: "2", type: "video", title: "10 AI Tools You Need in 2026", author: "Trend Channel" }, // the weak fit
   { id: "3", type: "video", title: "Introduction to Neural Networks Explained", author: "EduChannel" }, // a genuinely better fit
   { id: "4", type: "book", title: "Advanced Book", author: "Author B" },
+  { id: "5", type: "book", title: "Another Solid Book", author: "Author C" },
 ];
 
 test("the critique pass replaces a weak-fit item chosen in the first pass with a genuinely better one", async () => {
@@ -41,7 +42,7 @@ test("the critique pass replaces a weak-fit item chosen in the first pass with a
 
   assert.strictEqual(callCount, 2, "expected exactly two model calls: initial pass + critique pass");
   assert.strictEqual(result.usedFallback, false);
-  assert.strictEqual(result.path.length, 3);
+  assert.strictEqual(result.path.length, 4, "paths are topped up to the 4-item minimum");
   assert.ok(
     !result.path.some((p) => p.id === "2"),
     "the weak-fit item (id 2) should have been swapped out by the critique pass"
@@ -75,6 +76,6 @@ test("if the critique pass fails entirely, the first-pass result is still return
   const result = await sequencePath({ goal: "understand AI", level: "new", items: ITEMS });
 
   assert.strictEqual(result.usedFallback, false);
-  assert.strictEqual(result.path.length, 2);
-  assert.deepStrictEqual(result.path.map((p) => p.id).sort(), ["1", "4"]);
+  assert.strictEqual(result.path.length, 4, "a 2-step result is topped up to the 4-item minimum");
+  assert.deepStrictEqual(result.path.slice(0, 2).map((p) => p.id), ["1", "4"]);
 });

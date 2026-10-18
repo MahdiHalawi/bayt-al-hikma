@@ -107,6 +107,7 @@ const translations = {
     time_moderate: "A steady pace",
     time_deep: "Deep, immersive study",
     open_link: "Open",
+    find_book_link: "Find this book",
     read_free_link: "Read free",
     buy_locally_prefix: "Buy locally via",
     cookie_banner_text: "We use local browser storage to keep you logged in, and may use basic analytics to understand how the site is used.",
@@ -234,6 +235,7 @@ const translations = {
     time_moderate: "وتيرة ثابتة",
     time_deep: "دراسة عميقة ومكثفة",
     open_link: "افتح",
+    find_book_link: "ابحث عن الكتاب",
     read_free_link: "اقرأ مجاناً",
     buy_locally_prefix: "اشترِ محلياً عبر",
     cookie_banner_text: "نستخدم التخزين المحلي في متصفحك لإبقائك مسجلاً للدخول، وقد نستخدم تحليلات أساسية لفهم كيفية استخدام الموقع.",
@@ -361,6 +363,7 @@ const translations = {
     time_moderate: "Un rythme régulier",
     time_deep: "Une étude approfondie",
     open_link: "Ouvrir",
+    find_book_link: "Trouver ce livre",
     read_free_link: "Lire gratuitement",
     buy_locally_prefix: "Acheter localement via",
     cookie_banner_text: "Nous utilisons le stockage local de votre navigateur pour vous garder connecté, et pourrions utiliser des analyses de base pour comprendre l'utilisation du site.",
@@ -621,7 +624,6 @@ const ALL_COUNTRIES = [
   { name: 'Iraq', code: 'iq' },
   { name: 'Ireland', code: 'ie' },
   { name: 'Isle of Man', code: 'im' },
-  { name: 'Israel', code: 'il' },
   { name: 'Italy', code: 'it' },
   { name: 'Jamaica', code: 'jm' },
   { name: 'Japan', code: 'jp' },
@@ -1828,12 +1830,24 @@ function findLocalStoreLink(book) {
   return LOCAL_STORE_CATALOG[key] || null;
 }
 
-async function searchBooksOpenLibrary(query, contentLanguage) {
+async function searchBooksOpenLibrary(query, contentLanguage, subjectFirst = true) {
+  const first = await searchBooksOpenLibraryOnce(query, contentLanguage, subjectFirst);
+  if (first && first.length >= MIN_PATH_ITEMS) return first;
+  const second = await searchBooksOpenLibraryOnce(query, contentLanguage, false);
+  if (!first) return second;
+  const have = new Set(first.map((b) => b.id));
+  return first.concat((second || []).filter((b) => !have.has(b.id)));
+}
+
+async function searchBooksOpenLibraryOnce(query, contentLanguage, subjectFirst) {
   try {
     // sort=editions puts widely-published (i.e. famous) books ahead of
     // obscure title matches and old one-off public-domain scans.
+    // subject: restricts to books actually CLASSIFIED under the topic —
+    // a plain full-text search for "economics" returns famous novels that
+    // merely mention it. Plain text search is only the second attempt.
     let url =
-      `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=30&sort=editions` +
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(subjectFirst ? `subject:"${query}"` : query)}&limit=30&sort=editions` +
       `&fields=key,title,author_name,cover_i,ebook_access,ia,edition_count,first_publish_year,publish_year`;
     const langCode = OPENLIBRARY_LANG_CODES[contentLanguage];
     if (langCode) url += `&language=${langCode}`;
@@ -1900,6 +1914,7 @@ async function suggestBooksAI(goal, level, contentLanguage) {
     });
     if (!res.ok) throw new Error("book suggestion backend not available");
     const result = await res.json();
+    if (!result.items || result.items.length === 0) console.warn(`Book suggestions came back empty (proposed: ${result.proposed}) — using keyword search.`);
     return { searchGoal: result.searchGoal || "", angleQueries: result.angleQueries || {}, items: Array.isArray(result.items) ? result.items : [] };
   } catch (err) {
     console.warn("Book suggestions unavailable, will use keyword search:", err.message);
@@ -2036,6 +2051,7 @@ async function buildPathRealCore(goal, contentType, contentLanguage, level) {
   // best-matched path, not a fallback. Tracked here and surfaced
   // honestly by the caller (see startSeekingDelay) instead.
   let usedGenericFallback = false;
+  let gotLiveItems = false; // true once ANY live, goal-specific result was found
 
   const wantsBooks = contentType === "books" || contentType === "mix";
   const wantsVideos = contentType === "videos" || contentType === "mix";
@@ -2062,6 +2078,7 @@ async function buildPathRealCore(goal, contentType, contentLanguage, level) {
 
     if (books.length > 0) {
       bookResults = books;
+      gotLiveItems = true;
     } else {
       bookResults = filterItems(staticItems, "books", contentLanguage); // everything failed — fall back, still honoring language
       if (topic === "default" && resolveTopic(searchGoal) === "default") usedGenericFallback = true;
@@ -2085,6 +2102,7 @@ async function buildPathRealCore(goal, contentType, contentLanguage, level) {
     const liveVideos = await searchVideosWithAngles(videoTerm, angles, contentLanguage);
     if (liveVideos && liveVideos.length > 0) {
       videoResults = liveVideos;
+      gotLiveItems = true;
     } else {
       videoResults = filterItems(staticItems, "videos", contentLanguage); // API failed/no key/empty — fall back, still honoring language
       if (topic === "default") usedGenericFallback = true;
@@ -2092,7 +2110,10 @@ async function buildPathRealCore(goal, contentType, contentLanguage, level) {
   }
 
   function markResult(arr) {
-    arr._usedGenericFallback = usedGenericFallback;
+    // Only tell the user their goal wasn't recognized when NOTHING live
+    // matched it — a failed YouTube lookup alone must not discard good
+    // live book results with a misleading "didn't recognize" note.
+    arr._usedGenericFallback = usedGenericFallback && !gotLiveItems;
     return arr;
   }
 
@@ -2105,12 +2126,15 @@ async function buildPathRealCore(goal, contentType, contentLanguage, level) {
     // YouTube. Picking "Articles" or "Courses" specifically DOES use
     // the real live search below.
     const remainingStatic = staticItems.filter((item) => item.type !== "book" && item.type !== "video");
-    return markResult([...bookResults, ...videoResults, ...remainingStatic]);
+    // For an unrecognized topic the static articles/courses are unrelated
+    // demo items — only use them when live results alone are too few.
+    const live = [...bookResults, ...videoResults];
+    return markResult(topic === "default" && gotLiveItems && live.length >= MIN_PATH_ITEMS ? live : [...live, ...remainingStatic]);
   }
 
   if (contentType === "articles" || contentType === "courses") {
     const liveContent = await searchContentWithAI(goal, contentType, level || "basics", contentLanguage);
-    if (liveContent && liveContent.length > 0) return markResult(liveContent);
+    if (liveContent && liveContent.length > 0) { gotLiveItems = true; return markResult(liveContent); }
     if (topic === "default") usedGenericFallback = true;
     return markResult(filterItems(staticItems, contentType, contentLanguage)); // search failed/not configured — fall back to demo data
   }
@@ -2150,7 +2174,7 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted, levelOther }),
+      body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted, levelOther, outputLanguage: /[\u0600-\u06FF]/.test(goal || "") ? "ar" : currentLang, contentType: state.contentType }),
     });
 
     if (!res.ok) {
@@ -2303,6 +2327,14 @@ function renderPathGrid() {
         if (safePdfUrl) {
           linkParts.push(
             `<a href="${safePdfUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;margin-right:1rem;display:inline-block">${t("read_free_link")} ↗</a>`
+          );
+        }
+        // Most books have no free edition, which used to leave a card with
+        // no way to actually get the book — always offer a search for it.
+        if (book.title) {
+          const findUrl = `https://www.google.com/search?tbm=bks&q=${encodeURIComponent(`${book.title} ${book.author || ""}`.trim())}`;
+          linkParts.push(
+            `<a href="${findUrl}" target="_blank" rel="noopener" class="text-button" style="margin-top:.5rem;margin-inline-end:1rem;display:inline-block">${t("find_book_link")} ↗</a>`
           );
         }
         const localStore = findLocalStoreLink(book);

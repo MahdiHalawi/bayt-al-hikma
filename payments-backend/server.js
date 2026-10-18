@@ -352,7 +352,7 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
     // this case is genuinely worth monitoring.
   }
 
-  const { goal, level, format, timeCommitment, items, previouslyCompleted, levelOther } = req.body || {};
+  const { goal, level, format, timeCommitment, items, previouslyCompleted, levelOther, outputLanguage, contentType } = req.body || {};
 
   if (!Array.isArray(items)) {
     return res.status(400).json({ error: "'items' must be an array of the already-fetched books/videos" });
@@ -367,6 +367,8 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
       timeCommitment: timeCommitment || "moderate",
       items,
       previouslyCompleted: Array.isArray(previouslyCompleted) ? previouslyCompleted : [],
+      outputLanguage: ["ar", "fr", "en"].includes(outputLanguage) ? outputLanguage : "en",
+      contentType: typeof contentType === "string" ? contentType : "",
     });
     res.json(result);
   } catch (err) {
