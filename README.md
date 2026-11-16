@@ -92,6 +92,25 @@ Breadth applies to every format: article/course web searches are told to cover f
 
 Every book card also carries a "Find this book" link (a Google Books search), since most books have no free edition; a "mix" path asks the sequencer for at least 2 items of each available format; and the sequencer writes its one-line reasons in the language the goal was typed in. Paths are capped at 7 steps and floored at 4.
 
+## Guest generation — the path comes before the signup
+
+A visitor no longer has to create an account (and confirm an email) before seeing anything. They type a goal, answer the questions, and their first path is built straight away. The first 2 steps are open, exactly like a free account. Signup is asked for afterwards, to **save** the path or unlock more, and the path they already built is saved to the new account as-is (no second generation, including when the email is confirmed in a different browser: the path travels with the pending goal).
+
+**How cost is protected** (`guestAccessService.js`): a guest is a random id kept in the browser, sent as an `X-Guest-Id` header instead of a session token. The backend allows one path per guest id per day, caps every IP address at a small multiple of that (so clearing storage or changing the id doesn't help), and stops all guest paths at a global daily ceiling. Counters are in memory and reset daily and on a restart.
+
+**Settings** (`payments-backend/.env`, both optional):
+```
+GUEST_GENERATION_ENABLED=false   # switch guests off: every AI endpoint requires a session again
+GUEST_DAILY_PATH_CAP=150         # most guest paths per day, across all visitors
+```
+
+New Umami events: `signup_prompt_shown` and `guest_path_saved`; `path_generated` now carries `guest: true/false`. The funnel order is now goal_submitted → path_generated → signup_completed.
+
+```bash
+cd payments-backend
+node --test test/guestAccessService.test.js
+```
+
 ## Free-tier enforcement — a real bug worth knowing about
 
 The free-path-limit (one path per free account) is enforced **on the backend**, not just the frontend — a frontend-only check is really just a suggestion, trivially bypassed by a browser back button, a fresh tab, or calling the endpoint directly, and every bypass burns a real, paid Anthropic API call regardless. See `pathLimitService.js` for the authoritative, tested enforcement.
@@ -103,7 +122,7 @@ A related real bug: the frontend originally treated a legitimate 403 "you've rea
 - **XSS**: all user-typed and external/AI-generated content (goals, book titles, authors, AI-written descriptions) is HTML-escaped before rendering; URLs going into `href`/`src` attributes are validated as genuine `http(s)` links or dropped.
 - **Row Level Security**: enabled and verified on `profiles`, `paths`, and `progress` — confirmed directly by querying as a real user and checking only their own data returns, not just trusting policy names.
 - **Rate limiting**: on `/api/sequence-path` (10/min) and `/api/save-pending-goal` (10/min), since both can be called by an unauthenticated or minimally-authenticated client.
-- **Auth-protected AI endpoint**: `/api/sequence-path` requires a genuine, currently-valid Supabase session token — no session, no AI call, no cost.
+- **Auth-protected AI endpoints**: every AI/search endpoint requires either a genuine, currently-valid Supabase session token or a guest id inside its small daily quota (see "Guest generation" above). A present-but-invalid token is always rejected, never treated as a guest.
 
 ## Video search, AI sequencing, articles/courses
 
