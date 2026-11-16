@@ -31,6 +31,7 @@ const { createPaddlePortalSession } = require("./paddlePortalService");
 const { verifyRequestAuth } = require("./authHelper");
 const { validatePendingGoalRequest } = require("./pendingGoalService");
 const { hasReachedFreePathLimit } = require("./pathLimitService");
+const { createGuestQuota, resolveRequester } = require("./guestAccessService");
 
 // Both of these are made OPTIONAL on purpose — if you haven't decided on
 // a payment provider yet (or haven't set up Supabase), the server still
@@ -208,6 +209,36 @@ app.post("/api/create-checkout-session", async (req, res) => {
 // often even a genuinely logged-in user can hit this specific endpoint.
 // This protects against a single compromised or overly-eager account
 // hammering it, not just against unauthenticated abuse.
+// ---------- guest generation ----------
+// A visitor without an account may build ONE path (see
+// guestAccessService.js for how the cost is capped). Every AI/search
+// endpoint below calls authorize(): a logged-in user passes exactly as
+// before; a guest passes only while inside their small daily quota.
+// GUEST_GENERATION_ENABLED=false turns guests off without a deploy of
+// new code — every endpoint then requires a real session again.
+const guestsEnabled = process.env.GUEST_GENERATION_ENABLED !== "false";
+const guestQuota = createGuestQuota({
+  globalDailyPaths: Number(process.env.GUEST_DAILY_PATH_CAP) || 150,
+});
+
+async function authorize(req, res, endpoint) {
+  const who = await resolveRequester({ sbAdmin, headers: req.headers, verifyRequestAuth, guestsEnabled });
+  if (who.user) return who;
+  if (who.guest) {
+    const quota = guestQuota.consume(endpoint, who.guest.id, req.ip);
+    if (!quota.allowed) {
+      res.status(403).json({
+        error: "Create a free account to continue.",
+        code: "GUEST_LIMIT_REACHED",
+      });
+      return null;
+    }
+    return who;
+  }
+  res.status(401).json({ error: who.error || "Unauthorized" });
+  return null;
+}
+
 const sequenceLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -331,16 +362,15 @@ app.post("/api/manage-subscription", manageSubscriptionLimiter, async (req, res)
 // who found this URL could call it directly and drain real Anthropic
 // billing with no relation to actual site usage.
 app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
-  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: authError || "Unauthorized" });
-  }
+  const who = await authorize(req, res, "sequence-path");
+  if (!who) return;
+  const user = who.user;
 
   // The real, authoritative enforcement of the free-tier "one path"
   // limit — this MUST live here, not just in the frontend UI. See
   // pathLimitService.js for the full reasoning and direct unit tests.
   try {
-    if (await hasReachedFreePathLimit(sbAdmin, user.id)) {
+    if (user && (await hasReachedFreePathLimit(sbAdmin, user.id))) {
       return res.status(403).json({
         error: "Free accounts are limited to one learning path. Upgrade to Premium for unlimited paths.",
         code: "FREE_PATH_LIMIT_REACHED",
@@ -355,7 +385,14 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
   const { goal, level, format, timeCommitment, items, previouslyCompleted, levelOther, outputLanguage, contentType } = req.body || {};
 
   if (!Array.isArray(items)) {
+    if (who.guest) guestQuota.refund("sequence-path", who.guest.id, req.ip);
     return res.status(400).json({ error: "'items' must be an array of the already-fetched books/videos" });
+  }
+  // A guest request is anonymous, so its size is bounded: an oversized
+  // payload would otherwise be a cheap way to burn AI tokens.
+  if (who.guest && (items.length > 60 || JSON.stringify(items).length > 60000 || String(goal || "").length > 300)) {
+    guestQuota.refund("sequence-path", who.guest.id, req.ip);
+    return res.status(400).json({ error: "Request too large" });
   }
 
   try {
@@ -366,13 +403,15 @@ app.post("/api/sequence-path", sequenceLimiter, async (req, res) => {
       format: format || "either",
       timeCommitment: timeCommitment || "moderate",
       items,
-      previouslyCompleted: Array.isArray(previouslyCompleted) ? previouslyCompleted : [],
+      // "Expand my scroll" belongs to real accounts — a guest never has completed items.
+      previouslyCompleted: who.user && Array.isArray(previouslyCompleted) ? previouslyCompleted : [],
       outputLanguage: ["ar", "fr", "en"].includes(outputLanguage) ? outputLanguage : "en",
       contentType: typeof contentType === "string" ? contentType : "",
     });
     res.json(result);
   } catch (err) {
     console.error(err);
+    if (who.guest) guestQuota.refund("sequence-path", who.guest.id, req.ip);
     res.status(500).json({ error: "Something went wrong sequencing the path" });
   }
 });
@@ -393,10 +432,8 @@ const contentSearchLimiter = rateLimit({
 // recommendations from genuine results, grounded against the actual
 // search results returned (see contentSearchService.js).
 app.post("/api/search-content", contentSearchLimiter, async (req, res) => {
-  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: authError || "Unauthorized" });
-  }
+  const who = await authorize(req, res, "search-content");
+  if (!who) return;
 
   const { goal, contentType, level, contentLanguage } = req.body || {};
   if (contentType !== "articles" && contentType !== "courses") {
@@ -424,10 +461,8 @@ const bookSuggestLimiter = rateLimit({
 });
 
 app.post("/api/suggest-books", bookSuggestLimiter, async (req, res) => {
-  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: authError || "Unauthorized" });
-  }
+  const who = await authorize(req, res, "suggest-books");
+  if (!who) return;
   const { goal, level, contentLanguage } = req.body || {};
   if (!goal || typeof goal !== "string") {
     return res.status(400).json({ error: "'goal' is required" });
@@ -444,10 +479,8 @@ app.post("/api/suggest-books", bookSuggestLimiter, async (req, res) => {
 // Cheap angle planning for video searches (English goal + search phrases
 // for foundation / adjacent / history angles). See bookSuggestService.js.
 app.post("/api/plan-angles", bookSuggestLimiter, async (req, res) => {
-  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: authError || "Unauthorized" });
-  }
+  const who = await authorize(req, res, "plan-angles");
+  if (!who) return;
   const { goal, level } = req.body || {};
   if (!goal || typeof goal !== "string") {
     return res.status(400).json({ error: "'goal' is required" });
@@ -468,10 +501,8 @@ const videoSearchLimiter = rateLimit({
 });
 
 app.post("/api/search-videos", videoSearchLimiter, async (req, res) => {
-  const { user, error: authError } = await verifyRequestAuth(sbAdmin, req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: authError || "Unauthorized" });
-  }
+  const who = await authorize(req, res, "search-videos");
+  if (!who) return;
 
   const { query, contentLanguage } = req.body || {};
   if (!query) {

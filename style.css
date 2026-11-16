@@ -1291,3 +1291,25 @@
   outline: 2px solid var(--bronze);
   outline-offset: 2px;
 }
+
+
+/* Guest generation: the "save your path" banner above a guest's path */
+.guest-save-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem 1.2rem;
+  margin: 0 0 1.2rem;
+  padding: .9rem 1.1rem;
+  background: rgba(27, 42, 87, .06);
+  border: 1px solid rgba(217, 169, 79, .7);
+  border-inline-start: 4px solid rgb(217, 169, 79);
+  color: rgb(27, 42, 87);
+  text-align: start;
+}
+.guest-save-banner.hidden { display: none; }
+.guest-save-text { display: flex; flex-direction: column; gap: .2rem; flex: 1 1 16rem; }
+.guest-save-text strong { font-size: 1.05rem; }
+.guest-save-text span { font-size: .92rem; opacity: .9; }
+.guest-save-banner .action-button { flex: 0 0 auto; background: rgb(27, 42, 87); color: rgb(244, 233, 216); }

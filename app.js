@@ -152,6 +152,11 @@ const translations = {
     premiumPlan: "Premium · full path unlocked",
     lockedLabel: "Locked",
     unlockPrompt: "Unlock with Premium",
+    guest_save_title: "This path is yours. Save it.",
+    guest_save_text: "Create a free account to keep this path and come back to it from any device.",
+    guest_save_button: "Save my path (free)",
+    guest_signup_prompt: "Create a free account to save your path. It takes a minute.",
+    guest_limit_message: "You've already built your free path. Create a free account to save it and continue.",
     unrollTracker: "Unroll my tracker",
     unlockTracker: "Unlock my tracker with Premium",
     tracker_eyebrow: "Keep the path",
@@ -280,6 +285,11 @@ const translations = {
     premiumPlan: "بريميوم · الطريق كاملاً مفتوح",
     lockedLabel: "مقفل",
     unlockPrompt: "افتحه مع بريميوم",
+    guest_save_title: "هذا المسار لك. احفظه.",
+    guest_save_text: "أنشئ حساباً مجانياً لتحتفظ بهذا المسار وتعود إليه من أي جهاز.",
+    guest_save_button: "احفظ مساري (مجاناً)",
+    guest_signup_prompt: "أنشئ حساباً مجانياً لحفظ مسارك. لا يأخذ أكثر من دقيقة.",
+    guest_limit_message: "لقد بنيت مسارك المجاني. أنشئ حساباً مجانياً لحفظه والمتابعة.",
     unrollTracker: "افتح متتبعي",
     unlockTracker: "افتح متتبعي مع بريميوم",
     tracker_eyebrow: "احتفظ بالطريق",
@@ -408,6 +418,11 @@ const translations = {
     premiumPlan: "Premium · chemin complet débloqué",
     lockedLabel: "Verrouillé",
     unlockPrompt: "Débloquer avec Premium",
+    guest_save_title: "Ce chemin est à vous. Gardez-le.",
+    guest_save_text: "Créez un compte gratuit pour conserver ce chemin et y revenir depuis n'importe quel appareil.",
+    guest_save_button: "Enregistrer mon chemin (gratuit)",
+    guest_signup_prompt: "Créez un compte gratuit pour enregistrer votre chemin. Une minute suffit.",
+    guest_limit_message: "Vous avez déjà créé votre chemin gratuit. Créez un compte gratuit pour l'enregistrer et continuer.",
     unrollTracker: "Déployer mon suivi",
     unlockTracker: "Débloquer mon suivi avec Premium",
     tracker_eyebrow: "Gardez le chemin",
@@ -1402,7 +1417,17 @@ document.getElementById("continue-button").addEventListener("click", async () =>
     // from any earlier interaction, the hoopoe looked frozen right from
     // the very start, before generation had even begun.
     document.querySelector(".seeking-bird-wrap").classList.remove("loading-complete");
-    document.getElementById("email-form").classList.remove("hidden");
+    // Guest generation: a visitor no longer has to create an account
+    // before seeing anything. Their first path is built right away;
+    // signup is only asked for afterwards, to save it. A browser that
+    // already holds a guest path is asked to sign up instead (the
+    // backend enforces the same one-path rule regardless).
+    if (loadGuestPath()) {
+      showGuestSignup("guest_limit_message");
+    } else {
+      document.getElementById("email-form").classList.add("hidden");
+      startSeekingDelay();
+    }
   }
 });
 
@@ -1473,13 +1498,20 @@ emailForm.addEventListener("submit", async (e) => {
       body: JSON.stringify({
         userId: data.user.id,
         pendingGoal: {
-          goal: state.goal,
+          goal: (loadGuestPath() || {}).goal || state.goal,
           level: state.level,
           levelOther: state.levelOther,
           format: state.format,
           timeCommitment: state.timeCommitment,
           contentType: state.contentType,
           contentLanguage: state.contentLanguage,
+          // When this person already built a path as a guest, it travels
+          // with the pending goal — so confirming the email in a
+          // different browser shows that same path, not a regenerated one.
+          guestPath: (() => {
+            const g = loadGuestPath();
+            return g ? { goal: g.goal, topic: g.topic, level: g.level, contentType: g.contentType, contentLanguage: g.contentLanguage, items: g.items, genericFallback: g.genericFallback } : undefined;
+          })(),
         },
       }),
     });
@@ -1583,6 +1615,11 @@ async function continueAfterConfirmedSignup(userId) {
     return;
   }
 
+  // The path this person already built as a guest becomes their
+  // account's path — they must never wait for (or pay the cost of) a
+  // second generation of something they are already looking at.
+  if (await adoptGuestPath(userId)) return;
+
   startSeekingDelay();
 }
 
@@ -1597,6 +1634,7 @@ async function continueAfterConfirmedSignup(userId) {
 // the AI as context, so the new path assumes that foundation and builds
 // genuinely deeper rather than starting over.
 function startSeekingDelay(previouslyCompleted = []) {
+  resetSeekingCopy();
   document.getElementById("searching-dots").classList.remove("hidden");
   document.getElementById("seeking-status").textContent = t("seekingStatus1");
   // Reset here (not just at the one real completion point below) so the
@@ -1675,6 +1713,12 @@ function startSeekingDelay(previouslyCompleted = []) {
         openUpgrade("limit");
         return;
       }
+      if (err.isGuestLimitBlock) {
+        // This visitor already used their one guest path (or guest
+        // capacity is full for today): show the signup form instead.
+        showGuestSignup("guest_limit_message");
+        return;
+      }
       throw err; // anything else is a genuine, unexpected failure — surface it normally
     }
     state.currentPathId = null;
@@ -1704,6 +1748,11 @@ function startSeekingDelay(previouslyCompleted = []) {
       } catch (err) {
         console.error("Could not save new path:", err);
       }
+    } else {
+      // A guest's path: kept in this browser until they create an
+      // account, at which point it is saved to that account as-is
+      // (see adoptGuestPath) — no second generation.
+      saveGuestPathLocally(topic);
     }
 
     document.getElementById("searching-dots").classList.add("hidden");
@@ -1904,12 +1953,13 @@ const MIN_PATH_ITEMS = 4;
 // { searchGoal, items } or null if the backend is unreachable.
 async function suggestBooksAI(goal, level, contentLanguage) {
   try {
-    const { data: sessionData } = await sb.auth.getSession();
-    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-    if (!accessToken) return null;
+    // A logged-in user sends their session token; a visitor without an
+    // account sends their guest id instead (see backendAuthHeaders).
+    const authHeaders = await backendAuthHeaders();
+    if (!authHeaders) return null;
     const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/suggest-books`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ goal, level, contentLanguage }),
     });
     if (!res.ok) throw new Error("book suggestion backend not available");
@@ -1926,12 +1976,13 @@ async function suggestBooksAI(goal, level, contentLanguage) {
 // angleQueries } or null if the backend is unreachable.
 async function planAnglesAI(goal, level) {
   try {
-    const { data: sessionData } = await sb.auth.getSession();
-    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-    if (!accessToken) return null;
+    // A logged-in user sends their session token; a visitor without an
+    // account sends their guest id instead (see backendAuthHeaders).
+    const authHeaders = await backendAuthHeaders();
+    if (!authHeaders) return null;
     const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/plan-angles`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ goal, level }),
     });
     if (!res.ok) throw new Error("angle planning backend not available");
@@ -1967,19 +2018,14 @@ async function searchVideosWithAngles(coreTerm, angleQueries, contentLanguage) {
 // + graceful-fallback philosophy as sequenceWithAI/searchContentWithAI.
 async function searchVideosYouTube(query, contentLanguage) {
   try {
-    const { data: sessionData } = await sb.auth.getSession();
-    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-    if (!accessToken) {
-      console.warn("No active session found — skipping video search.");
-      return null;
-    }
+    // A logged-in user sends their session token; a visitor without an
+    // account sends their guest id instead (see backendAuthHeaders).
+    const authHeaders = await backendAuthHeaders();
+    if (!authHeaders) return null;
 
     const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/search-videos`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ query, contentLanguage }),
     });
     if (!res.ok) throw new Error("video search backend not available");
@@ -2157,23 +2203,14 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
     // session — this is what actually stops anyone who finds this URL
     // from calling it directly and draining real Anthropic billing with
     // no relation to genuine site usage.
-    const { data: sessionData } = await sb.auth.getSession();
-    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-    if (!accessToken) {
-      // Shouldn't normally happen — reaching this point in the flow
-      // always implies a just-completed signup or an existing login —
-      // but degrade gracefully rather than break the experience if it
-      // somehow does.
-      console.warn("No active session found — skipping AI sequencing.");
-      return items;
-    }
+    // A logged-in user sends their session token; a visitor without an
+    // account sends their guest id instead (see backendAuthHeaders).
+    const authHeaders = await backendAuthHeaders();
+    if (!authHeaders) return items;
 
     const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/sequence-path`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ goal, level, format, timeCommitment, items, previouslyCompleted, levelOther, outputLanguage: /[\u0600-\u06FF]/.test(goal || "") ? "ar" : currentLang, contentType: state.contentType }),
     });
 
@@ -2194,13 +2231,25 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
         limitError.isFreeLimitBlock = true;
         throw limitError;
       }
+      // A guest who has already used their one free path: same idea as
+      // the free-limit block above — stop here and ask them to sign up,
+      // never quietly degrade to an unsequenced result.
+      // Also covers guests being switched off on the backend (a plain
+      // 401 for a visitor with no session): ask for signup, exactly as
+      // the site behaved before guest generation existed.
+      const guestRefused = res.status === 401 && !!authHeaders["X-Guest-Id"];
+      if (guestRefused || (res.status === 403 && body && body.code === "GUEST_LIMIT_REACHED")) {
+        const guestError = new Error("guest limit reached");
+        guestError.isGuestLimitBlock = true;
+        throw guestError;
+      }
       throw new Error("sequencing backend not available");
     }
 
     const result = await res.json();
     return result.path && result.path.length > 0 ? result.path : items;
   } catch (err) {
-    if (err.isFreeLimitBlock) throw err; // re-throw — the caller must handle this distinctly, not degrade
+    if (err.isFreeLimitBlock || err.isGuestLimitBlock) throw err; // re-throw — the caller must handle this distinctly, not degrade
     console.warn("AI sequencing unavailable, using unsequenced live results:", err.message);
     return items;
   }
@@ -2215,19 +2264,14 @@ async function sequenceWithAI(goal, level, format, timeCommitment, items, previo
 // instead of breaking the experience.
 async function searchContentWithAI(goal, contentType, level, contentLanguage) {
   try {
-    const { data: sessionData } = await sb.auth.getSession();
-    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-    if (!accessToken) {
-      console.warn("No active session found — skipping live content search.");
-      return null;
-    }
+    // A logged-in user sends their session token; a visitor without an
+    // account sends their guest id instead (see backendAuthHeaders).
+    const authHeaders = await backendAuthHeaders();
+    if (!authHeaders) return null;
 
     const res = await fetch(`${window.BACKEND_URL || "http://localhost:4242"}/api/search-content`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { "Content-Type": "application/json", ...authHeaders },
       body: JSON.stringify({ goal, contentType, level, contentLanguage }),
     });
     if (!res.ok) throw new Error("content search backend not available");
@@ -2245,7 +2289,18 @@ document.getElementById("secret-message-btn").addEventListener("click", () => {
     showPathsList();
     return;
   }
-  trackFunnelEvent("path_generated", { contentType: state.contentType, itemCount: state.currentPath.length });
+  if (btn.dataset.mode === "guest-back") {
+    // Back from the signup form to the guest's existing path — not a
+    // new generation, so no funnel event here.
+    const saved = loadGuestPath();
+    if (saved) restoreGuestPathIntoState(saved);
+    document.getElementById("email-form").classList.add("hidden");
+    document.getElementById("signup-message").textContent = "";
+    renderPathGrid();
+    showScreen("reveal");
+    return;
+  }
+  trackFunnelEvent("path_generated", { contentType: state.contentType, itemCount: state.currentPath.length, guest: !state.userId });
   renderPathGrid();
   showScreen("reveal");
 });
@@ -2363,6 +2418,13 @@ function renderPathGrid() {
 
   const trackerBtn = document.getElementById("tracker-button");
   trackerBtn.textContent = state.isPremium ? t("unrollTracker") : t("unlockTracker");
+
+  // Guests see a "save your path" banner and have no paths list yet.
+  const isGuestPath = !state.userId && state.currentPath.length > 0;
+  const guestBanner = document.getElementById("guest-save-banner");
+  if (guestBanner) guestBanner.classList.toggle("hidden", !isGuestPath);
+  const viewPathsBtn = document.getElementById("reveal-view-paths-button");
+  if (viewPathsBtn) viewPathsBtn.classList.toggle("hidden", !state.userId);
 }
 
 // Explicit product decision: content stays permanently unlocked once
@@ -2467,6 +2529,10 @@ document.getElementById("new-path-button").addEventListener("click", () => {
 document.getElementById("view-paths-button").addEventListener("click", () => {
   showPathsList();
 });
+document.getElementById("guest-save-button").addEventListener("click", () => {
+  showGuestSignup("guest_signup_prompt");
+});
+
 document.getElementById("reveal-view-paths-button").addEventListener("click", () => {
   // Real bug fixed here: someone (a free user specifically, since
   // tracker access is Premium-only) who clicked into a saved path from
@@ -2535,6 +2601,12 @@ verseOverlay.addEventListener("click", (e) => { if (e.target === verseOverlay) v
 // ---------- upgrade / payment overlay ----------
 const upgradeOverlay = document.getElementById("upgrade-overlay");
 function openUpgrade(reason = null) {
+  // A guest has no account to attach a subscription to yet — the
+  // first step for them is always the free signup, not the checkout.
+  if (!state.userId && !state.premiumFirstFlow) {
+    showGuestSignup("guest_signup_prompt");
+    return;
+  }
   document.getElementById("checkout-status").textContent = "";
   // Real UX gap fixed here: this overlay opens from several different
   // contexts (a locked card, the paths list, the premium-first flow,
@@ -2606,6 +2678,194 @@ function celebrateIfNewlyPremium(isPremiumNow) {
 // A brief, tasteful moment when someone genuinely becomes premium —
 // called from both the real Paddle confirmation and the demo fallback,
 // so the experience feels the same regardless of which path granted it.
+// ---------- guest generation ----------
+// A visitor can build ONE path before creating an account. They are
+// identified to the backend by a random id kept in this browser — no
+// personal data — and the backend caps what a guest id (and its IP)
+// may cost. The finished path is kept in localStorage so a refresh
+// doesn't lose it, and is moved into their account when they sign up.
+const GUEST_ID_KEY = "bayt_al_hikma_guest_id";
+const GUEST_PATH_KEY = "bayt_al_hikma_guest_path";
+const GUEST_PATH_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+let inMemoryGuestId = null;
+
+function makeUuid() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+  const b = new Uint8Array(16);
+  if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(b);
+  else for (let i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+function getGuestId() {
+  try {
+    let id = localStorage.getItem(GUEST_ID_KEY);
+    if (!id) {
+      id = makeUuid();
+      localStorage.setItem(GUEST_ID_KEY, id);
+    }
+    return id;
+  } catch (err) {
+    // Storage blocked (private mode, strict settings): still works for
+    // this visit, it just can't be remembered across a refresh.
+    if (!inMemoryGuestId) inMemoryGuestId = makeUuid();
+    return inMemoryGuestId;
+  }
+}
+
+// The headers every backend AI/search call sends: the real session
+// token when logged in, otherwise the guest id.
+async function backendAuthHeaders() {
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+    if (accessToken) return { Authorization: `Bearer ${accessToken}` };
+  } catch (err) {
+    console.warn("Could not read the session, continuing as a guest:", err);
+  }
+  return { "X-Guest-Id": getGuestId() };
+}
+
+function saveGuestPathLocally(topic) {
+  try {
+    localStorage.setItem(GUEST_PATH_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      goal: state.goal,
+      topic,
+      level: state.level,
+      contentType: state.contentType,
+      contentLanguage: state.contentLanguage,
+      items: state.currentPath,
+      genericFallback: !!state.pathWasGenericFallback,
+    }));
+  } catch (err) {
+    console.warn("Could not keep the guest path in this browser:", err);
+  }
+}
+
+function loadGuestPath() {
+  try {
+    const raw = localStorage.getItem(GUEST_PATH_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    const fresh = saved && Date.now() - saved.savedAt < GUEST_PATH_MAX_AGE_MS;
+    if (!fresh || !Array.isArray(saved.items) || saved.items.length === 0) {
+      localStorage.removeItem(GUEST_PATH_KEY);
+      return null;
+    }
+    return saved;
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearGuestPath() {
+  try { localStorage.removeItem(GUEST_PATH_KEY); } catch (err) {}
+}
+
+// Opens the signup form for a guest (to save their path, unlock more,
+// or because their one guest path is used). Reuses the existing form
+// on the seeking screen rather than adding a second signup form.
+function showGuestSignup(messageKey) {
+  showScreen("seeking");
+  document.getElementById("searching-dots").classList.add("hidden");
+  document.getElementById("seeking-status").textContent = "";
+  document.getElementById("secret-message-btn").classList.add("hidden");
+  document.querySelector(".seeking-bird-wrap").classList.add("loading-complete");
+  document.getElementById("signup-goto-login-btn").classList.add("hidden");
+  document.getElementById("email-form").classList.remove("hidden");
+  document.getElementById("signup-message").textContent = "";
+  // The screen's usual heading describes the hoopoe searching, which is
+  // wrong here: say what signing up is for instead. startSeekingDelay
+  // puts the normal wording back (see resetSeekingCopy).
+  document.getElementById("seeking-title").textContent = t("guest_save_title");
+  const lede = document.querySelector("#seeking-screen .lede");
+  if (lede) lede.textContent = t(messageKey);
+  // Never a dead end: a guest who isn't ready to sign up can always go
+  // back to the path they already have.
+  const backBtn = document.getElementById("secret-message-btn");
+  if (state.currentPath.length > 0 || loadGuestPath()) {
+    backBtn.dataset.mode = "guest-back";
+    backBtn.textContent = t("seeking_go_to_path");
+    backBtn.classList.remove("hidden");
+  }
+  trackFunnelEvent("signup_prompt_shown", { reason: messageKey });
+}
+
+function resetSeekingCopy() {
+  document.getElementById("seeking-title").textContent = t("seeking_title");
+  const lede = document.querySelector("#seeking-screen .lede");
+  if (lede) lede.textContent = t("seeking_lede");
+}
+
+function restoreGuestPathIntoState(saved) {
+  state.goal = saved.goal || "";
+  state.level = saved.level || state.level;
+  state.contentType = saved.contentType || state.contentType;
+  state.contentLanguage = saved.contentLanguage || state.contentLanguage;
+  state.currentPath = saved.items;
+  state.pathWasGenericFallback = !!saved.genericFallback;
+  state.currentPathId = null;
+  state.completed = new Set();
+}
+
+// Moves the guest's already-built path into their new account. Returns
+// true when it handled the next screen itself.
+async function adoptGuestPath(userId, carried = null) {
+  const saved = carried || loadGuestPath();
+  if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) return false;
+
+  // Confirming the email in a different browser can already have
+  // generated a path for this account (the pending-goal safety net).
+  // A free account holds one path, so never add a second one here.
+  try {
+    if (await hasReachedFreePathLimit(userId)) {
+      clearGuestPath();
+      await showPathsList();
+      return true;
+    }
+  } catch (err) {
+    console.warn("Could not check existing path count:", err);
+  }
+
+  restoreGuestPathIntoState(saved);
+  state.currentPathUnlockedForever = state.isPremium;
+
+  try {
+    const { data, error } = await sb
+      .from("paths")
+      .insert({
+        user_id: userId,
+        goal: state.goal,
+        topic: saved.topic || resolveTopic(state.goal),
+        content_type: state.contentType,
+        content_language: state.contentLanguage,
+        items: state.currentPath,
+        unlocked_forever: state.isPremium,
+      })
+      .select()
+      .single();
+    if (error) {
+      // Keep the local copy so nothing is lost; they still see the path.
+      console.error("Could not save the guest path to the account:", error.message);
+    } else {
+      state.currentPathId = data.id;
+      clearGuestPath();
+      trackFunnelEvent("guest_path_saved");
+    }
+  } catch (err) {
+    console.error("Could not save the guest path to the account:", err);
+  }
+
+  document.getElementById("signup-message").textContent = "";
+  renderPathGrid();
+  showScreen("reveal");
+  return true;
+}
+
 // Real funnel tracking — the 5 genuine stages of the actual user
 // journey (goal submitted, signed up, path generated, upgraded), not
 // just raw page views. Defensive against window.umami not existing
@@ -2755,6 +3015,15 @@ if (window.lucide) lucide.createIcons();
         document.getElementById("searching-dots").classList.add("hidden");
         document.getElementById("secret-message-btn").classList.add("hidden");
         document.getElementById("email-form").classList.remove("hidden");
+        return;
+      }
+      // A returning guest: show the path they already built, with the
+      // "save your path" banner, instead of an empty landing page.
+      const savedGuestPath = loadGuestPath();
+      if (savedGuestPath) {
+        restoreGuestPathIntoState(savedGuestPath);
+        renderPathGrid();
+        showScreen("reveal");
       }
       return;
     }
@@ -2782,6 +3051,16 @@ if (window.lucide) lucide.createIcons();
 
     if (pendingGoal) {
       const { count } = await sb.from("paths").select("id", { count: "exact", head: true }).eq("user_id", session.user.id);
+      if (count === 0 && pendingGoal.guestPath && Array.isArray(pendingGoal.guestPath.items) && pendingGoal.guestPath.items.length > 0) {
+        // Signed up from a guest path, confirmed in another browser:
+        // save and show that same path instead of generating again.
+        try {
+          await sb.from("profiles").update({ pending_goal: null }).eq("id", session.user.id);
+        } catch (err) {
+          console.warn("Could not clear pending goal:", err);
+        }
+        if (await adoptGuestPath(session.user.id, pendingGoal.guestPath)) return;
+      }
       if (count === 0) {
         state.goal = pendingGoal.goal || "";
         state.level = pendingGoal.level || "basics";
