@@ -977,6 +977,17 @@ const goalForm = document.getElementById("goal-form");
 const goalInput = document.getElementById("goal-input");
 const goalMessage = document.getElementById("goal-message");
 
+// Deep link from social posts: baytalhikmaa.com/?topic=philosophy
+// pre-fills the goal box so a visitor is one tap from their path.
+(function prefillTopicFromLink() {
+  try {
+    const topic = new URLSearchParams(window.location.search).get("topic");
+    if (topic && !goalInput.value) goalInput.value = topic.trim().slice(0, 300);
+  } catch (err) {
+    // Non-fatal.
+  }
+})();
+
 goalForm.addEventListener("submit", (e) => {
   e.preventDefault();
   if (!goalInput.value.trim()) {
@@ -2871,10 +2882,28 @@ async function adoptGuestPath(userId, carried = null) {
 // just raw page views. Defensive against window.umami not existing
 // (script blocked, still loading, or not configured yet) — tracking is
 // a nice-to-have, never something that should be able to break the app.
+// Where the visitor came from, so the funnel can be split by channel
+// (tiktok / instagram / direct ...). Read once per page load from
+// ?utm_source=, ?src= or document.referrer. Only a short label is kept.
+const TRAFFIC_SOURCE = (function detectTrafficSource() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const explicit = params.get("utm_source") || params.get("src");
+    if (explicit) return explicit.toLowerCase().slice(0, 30);
+    if (document.referrer) {
+      const host = new URL(document.referrer).hostname.replace(/^www\./, "");
+      if (host && host !== window.location.hostname) return host.slice(0, 30);
+    }
+  } catch (err) {
+    // Fall through to "direct".
+  }
+  return "direct";
+})();
+
 function trackFunnelEvent(name, data) {
   try {
     if (window.umami && typeof window.umami.track === "function") {
-      window.umami.track(name, data);
+      window.umami.track(name, Object.assign({ source: TRAFFIC_SOURCE }, data || {}));
     }
   } catch (err) {
     // Never let analytics failures affect the actual user experience.
@@ -3159,8 +3188,16 @@ if (window.lucide) lucide.createIcons();
     return;
   }
 
+  // Keep the banner from covering page buttons: reserve its height at the
+  // bottom of the page while it is visible.
+  const reserveSpace = () => {
+    document.body.style.paddingBottom = banner.classList.contains("hidden") ? "" : banner.offsetHeight + "px";
+  };
+
   if (!alreadyConsented) {
     banner.classList.remove("hidden");
+    reserveSpace();
+    window.addEventListener("resize", reserveSpace);
   }
 
   acceptBtn.addEventListener("click", () => {
@@ -3170,5 +3207,6 @@ if (window.lucide) lucide.createIcons();
       console.warn("Could not save cookie consent choice:", err);
     }
     banner.classList.add("hidden");
+    reserveSpace();
   });
 })();
