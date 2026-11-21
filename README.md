@@ -164,3 +164,7 @@ Frontend tests (jsdom-based, simulating real user flows including signup, cross-
 - Business registration — deliberately deferred; operating as an individual for now, revisit if the product gains real traction
 - Two of four planned social post templates (testimonial, educational) still need final real content in some cases
 - Book/article/course catalog coverage for less common topics can still fall back to a generic, less-tailored result — the site now honestly tells the user when this happens, rather than presenting a mismatched path silently
+
+### Traffic source and deep links
+
+Funnel events sent to Umami now carry a `source` property (from `?utm_source=`, `?src=`, or the referrer host, otherwise `direct`). Social posts can link to `baytalhikmaa.com/?utm_source=tiktok&topic=philosophy`: the topic pre-fills the goal box.
